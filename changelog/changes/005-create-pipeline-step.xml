@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="005-create-table-pipeline-step" author="erp-integration">
+        <createTable tableName="pipeline_step">
+            <column name="pipeline_step_pk" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="pipeline_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="step_pk" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="seq" type="INT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="pipeline_step" baseColumnNames="pipeline_id"
+            referencedTableName="pipeline" referencedColumnNames="pipeline_id"
+            constraintName="fk_pipeline_step_pipeline"/>
+
+        <addForeignKeyConstraint
+            baseTableName="pipeline_step" baseColumnNames="step_pk"
+            referencedTableName="step" referencedColumnNames="step_pk"
+            constraintName="fk_pipeline_step_step"/>
+
+        <addUniqueConstraint tableName="pipeline_step" columnNames="pipeline_id, step_pk"
+            constraintName="uq_pipeline_step_pipeline_step"/>
+
+        <addUniqueConstraint tableName="pipeline_step" columnNames="pipeline_id, seq"
+            constraintName="uq_pipeline_step_pipeline_seq"/>
+
+        <createIndex tableName="pipeline_step" indexName="idx_pipeline_step_pipeline">
+            <column name="pipeline_id"/>
+            <column name="seq"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

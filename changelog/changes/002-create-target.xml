@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="002-create-table-target" author="erp-integration">
+        <createTable tableName="target">
+            <column name="target_id" type="VARCHAR(150)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="base_url" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="auth_type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="credential_ref" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="default_headers" type="JSONB" defaultValue="{}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="target" baseColumnNames="client_id"
+            referencedTableName="client" referencedColumnNames="client_id"
+            constraintName="fk_target_client"/>
+
+        <addUniqueConstraint tableName="target" columnNames="client_id, target_name"
+            constraintName="uq_target_client_name"/>
+
+    </changeSet>
+
+    <changeSet id="002b-create-target-client-index" author="erp-integration">
+        <sql>
+            CREATE INDEX idx_target_client ON target (client_id) WHERE is_active = TRUE;
+        </sql>
+        <rollback>
+            DROP INDEX IF EXISTS idx_target_client;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

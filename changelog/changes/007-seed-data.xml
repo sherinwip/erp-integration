@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="007-seed-client" author="erp-integration" context="demo">
+        <insert tableName="client">
+            <column name="client_id" value="AV"/>
+            <column name="client_name" value="Avalon Test Client"/>
+        </insert>
+        <insert tableName="client">
+            <column name="client_id" value="AKIMA"/>
+            <column name="client_name" value="Akima Test Client"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="007-seed-target" author="erp-integration" context="demo">
+        <insert tableName="target">
+            <column name="target_id" value="AV-oracle-fusion"/>
+            <column name="client_id" value="AV"/>
+            <column name="target_name" value="OracleFusion"/>
+            <column name="base_url" value="https://oracle-instance.oraclecloud.com"/>
+            <column name="auth_type" value="oauth2"/>
+            <column name="credential_ref" value="oracle-prod-creds"/>
+        </insert>
+        <insert tableName="target">
+            <column name="target_id" value="AV-sap"/>
+            <column name="client_id" value="AV"/>
+            <column name="target_name" value="SAP"/>
+            <column name="base_url" value="https://sap-instance.example.com"/>
+            <column name="auth_type" value="oauth2"/>
+            <column name="credential_ref" value="sap-prod-creds"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="007-seed-pipeline" author="erp-integration" context="demo">
+        <insert tableName="pipeline">
+            <column name="pipeline_id" value="award-to-oracle-contract-v1"/>
+            <column name="client_id" value="AV"/>
+            <column name="source_system" value="salesforce"/>
+            <column name="object_type" value="ContractAward"/>
+            <column name="event_type" value="create"/>
+            <column name="pattern_id" value="PAT-03"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="007-seed-step" author="erp-integration" context="demo">
+        <insert tableName="step">
+            <column name="step_pk" valueNumeric="1"/>
+            <column name="client_id" value="AV"/>
+            <column name="target_id" value="AV-oracle-fusion"/>
+            <column name="step_name" value="lookup-project"/>
+            <column name="method" value="GET"/>
+            <column name="path" value="/fscmRestApi/resources/11.13.18.05/projects"/>
+            <column name="query_params" value="{&quot;q&quot;: &quot;ProjectNumber='{{source.projectNumber}}'&quot;}" type="JSONB"/>
+            <column name="extract" value="{&quot;ProjectId&quot;: &quot;items[0].ProjectId&quot;}" type="JSONB"/>
+        </insert>
+        <insert tableName="step">
+            <column name="step_pk" valueNumeric="2"/>
+            <column name="client_id" value="AV"/>
+            <column name="target_id" value="AV-oracle-fusion"/>
+            <column name="step_name" value="create-contract"/>
+            <column name="method" value="POST"/>
+            <column name="path" value="/fscmRestApi/resources/11.13.18.05/contracts"/>
+        </insert>
+        <sql>SELECT setval(pg_get_serial_sequence('step','step_pk'), (SELECT MAX(step_pk) FROM step));</sql>
+    </changeSet>
+
+    <changeSet id="007-seed-pipeline-step" author="erp-integration" context="demo">
+        <insert tableName="pipeline_step">
+            <column name="pipeline_id" value="award-to-oracle-contract-v1"/>
+            <column name="step_pk" valueNumeric="1"/>
+            <column name="seq" valueNumeric="1"/>
+        </insert>
+        <insert tableName="pipeline_step">
+            <column name="pipeline_id" value="award-to-oracle-contract-v1"/>
+            <column name="step_pk" valueNumeric="2"/>
+            <column name="seq" valueNumeric="2"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="007-seed-field-mapping" author="erp-integration" context="demo">
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="2"/>
+            <column name="source_path" value="steps.lookup-project.ProjectId"/>
+            <column name="target_path" value="ProjectId"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="2"/>
+            <column name="source_path" value="contract.name"/>
+            <column name="target_path" value="ContractName"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="2"/>
+            <column name="source_path" value="amount"/>
+            <column name="target_path" value="ContractAmount"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="2"/>
+            <column name="source_path" value="currency"/>
+            <column name="target_path" value="CurrencyCode"/>
+            <column name="default_value" value="USD"/>
+            <column name="sort_order" valueNumeric="4"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

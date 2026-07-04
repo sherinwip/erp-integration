@@ -1,0 +1,624 @@
+{
+  "info": {
+    "name": "ERP Integration - Config & Entity Testing",
+    "description": "Runs against PostgREST exposing the erp_integration Postgres schema (client, target, step, pipeline, pipeline_step, field_mapping). Base URL defaults to http://localhost:3000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "clientId", "value": "PMTEST" },
+    { "key": "targetId", "value": "PMTEST-oracle-fusion" },
+    { "key": "pipelineId", "value": "pmtest-award-to-oracle-v1" },
+    { "key": "stepPk", "value": "" },
+    { "key": "mappingPk", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 - Config: Client",
+      "item": [
+        {
+          "name": "Create Client",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "return=representation" }
+            ],
+            "url": "{{baseUrl}}/client",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"client_name\": \"Postman Test Client\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('client_id matches', () => pm.expect(body[0].client_id).to.eql(pm.collectionVariables.get('clientId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Client by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/client?client_id=eq.{{clientId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('exactly one client returned', () => pm.expect(body.length).to.eql(1));",
+                  "pm.test('is_active defaults true', () => pm.expect(body[0].is_active).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Client Name",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/client?client_id=eq.{{clientId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"client_name\": \"Postman Test Client (Updated)\" }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Clients",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/client?order=client_id.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('at least seeded AV and AKIMA present', () => {",
+                  "  const ids = pm.response.json().map(c => c.client_id);",
+                  "  pm.expect(ids).to.include('AV');",
+                  "  pm.expect(ids).to.include('AKIMA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Config: Target",
+      "item": [
+        {
+          "name": "Create Target",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "return=representation" }
+            ],
+            "url": "{{baseUrl}}/target",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_id\": \"{{targetId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"target_name\": \"OracleFusion\",\n  \"base_url\": \"https://oracle-instance.oraclecloud.com\",\n  \"auth_type\": \"oauth2\",\n  \"credential_ref\": \"oracle-prod-creds\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Targets for Client",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/target?client_id=eq.{{clientId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('target belongs to client', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.length).to.be.greaterThan(0);",
+                  "  body.forEach(t => pm.expect(t.client_id).to.eql(pm.collectionVariables.get('clientId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Duplicate target_name for Same Client (Unique Constraint)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/target",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_id\": \"{{targetId}}-dup\",\n  \"client_id\": \"{{clientId}}\",\n  \"target_name\": \"OracleFusion\",\n  \"base_url\": \"https://dup.example.com\",\n  \"auth_type\": \"oauth2\",\n  \"credential_ref\": \"dup-cred\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409 Conflict (uq_target_client_name violated)', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Config: Step",
+      "item": [
+        {
+          "name": "Create Step (create-contract)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "return=representation" }
+            ],
+            "url": "{{baseUrl}}/step",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"target_id\": \"{{targetId}}\",\n  \"step_name\": \"create-contract\",\n  \"method\": \"POST\",\n  \"path\": \"/fscmRestApi/resources/11.13.18.05/contracts\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('stepPk', body[0].step_pk);",
+                  "pm.test('step_pk captured', () => pm.expect(pm.collectionVariables.get('stepPk')).to.exist);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Step Referencing Unknown Target (FK Violation)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/step",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"target_id\": \"does-not-exist\",\n  \"step_name\": \"bad-step\",\n  \"method\": \"POST\",\n  \"path\": \"/x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409 Conflict (fk_step_target violated)', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Step by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/step?step_pk=eq.{{stepPk}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('step_name is create-contract', () => pm.expect(body[0].step_name).to.eql('create-contract'));",
+                  "pm.test('has no body column (schema check)', () => pm.expect(body[0]).to.not.have.property('body'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Config: Field Mapping",
+      "item": [
+        {
+          "name": "Create Field Mapping Row",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "return=representation" }
+            ],
+            "url": "{{baseUrl}}/field_mapping",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": {{stepPk}},\n  \"source_path\": \"contract.name\",\n  \"target_path\": \"ContractName\",\n  \"is_required\": true,\n  \"sort_order\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('mappingPk', body[0].mapping_pk);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Duplicate target_path for Same Step (Unique Constraint)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/field_mapping",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": {{stepPk}},\n  \"source_path\": \"different.source\",\n  \"target_path\": \"ContractName\",\n  \"sort_order\": 2\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409 Conflict (uq_field_mapping_step_target violated)', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Field Mappings for Step (ordered)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.{{stepPk}}&order=sort_order.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('at least one mapping row', () => pm.expect(pm.response.json().length).to.be.greaterThan(0));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Config: Pipeline & Pipeline_Step",
+      "item": [
+        {
+          "name": "Create Pipeline",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "return=representation" }
+            ],
+            "url": "{{baseUrl}}/pipeline",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"source_system\": \"salesforce\",\n  \"object_type\": \"ContractAward\",\n  \"event_type\": \"create\",\n  \"pattern_id\": \"PAT-01\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Unsupported Pattern PAT-04 (App-Level Rule - Documents Expected Validation)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/pipeline",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}-unsupported\",\n  \"client_id\": \"{{clientId}}\",\n  \"source_system\": \"salesforce\",\n  \"object_type\": \"ContractAward\",\n  \"event_type\": \"update\",\n  \"pattern_id\": \"PAT-04\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('DB layer accepts PAT-04 (no CHECK constraint) - app/Dispatch API must reject PAT-04/PAT-09 at load time per FR-CLM-004', () => {",
+                  "  pm.expect(pm.response.code).to.eql(201);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attach Step to Pipeline (pipeline_step)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "return=representation" }
+            ],
+            "url": "{{baseUrl}}/pipeline_step",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"step_pk\": {{stepPk}},\n  \"seq\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Duplicate seq in Same Pipeline (Unique Constraint)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/pipeline_step",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"step_pk\": {{stepPk}},\n  \"seq\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409 Conflict (uq_pipeline_step_pipeline_step or seq violated)', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Full Pipeline Definition (steps + target joined)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/pipeline_step?pipeline_id=eq.{{pipelineId}}&select=seq,step:step_pk(step_name,method,path,target:target_id(target_name,base_url))&order=seq.asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["pipeline_step"],
+              "query": [
+                { "key": "pipeline_id", "value": "eq.{{pipelineId}}" },
+                { "key": "select", "value": "seq,step:step_pk(step_name,method,path,target:target_id(target_name,base_url))" },
+                { "key": "order", "value": "seq.asc" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('embedded step + target resolved', () => {",
+                  "  pm.expect(body.length).to.be.greaterThan(0);",
+                  "  pm.expect(body[0].step.target.target_name).to.eql('OracleFusion');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Entity Testing: Seeded PAT-03 Pipeline",
+      "item": [
+        {
+          "name": "Resolve Seeded Pipeline by Routing Key (client=AV, ContractAward, create)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/pipeline?client_id=eq.AV&source_system=eq.salesforce&object_type=eq.ContractAward&event_type=eq.create&status=eq.active"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('resolves to award-to-oracle-contract-v1', () => pm.expect(body[0].pipeline_id).to.eql('award-to-oracle-contract-v1'));",
+                  "pm.test('pattern is PAT-03', () => pm.expect(body[0].pattern_id).to.eql('PAT-03'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Seeded Pipeline's Steps in Execution Order",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/pipeline_step?pipeline_id=eq.award-to-oracle-contract-v1&select=seq,step:step_pk(step_name,method)&order=seq.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('seq 1 is lookup-project GET', () => {",
+                  "  pm.expect(body[0].step.step_name).to.eql('lookup-project');",
+                  "  pm.expect(body[0].step.method).to.eql('GET');",
+                  "});",
+                  "pm.test('seq 2 is create-contract POST', () => {",
+                  "  pm.expect(body[1].step.step_name).to.eql('create-contract');",
+                  "  pm.expect(body[1].step.method).to.eql('POST');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get create-contract Field Mappings in sort_order",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.2&order=sort_order.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('4 mapping rows seeded', () => pm.expect(body.length).to.eql(4));",
+                  "pm.test('first row maps lookup ProjectId', () => pm.expect(body[0].source_path).to.eql('steps.lookup-project.ProjectId'));",
+                  "pm.test('CurrencyCode has default USD', () => {",
+                  "  const cc = body.find(r => r.target_path === 'CurrencyCode');",
+                  "  pm.expect(cc.default_value).to.eql('USD');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify No Match Returns Empty Set (404-equivalent for unknown routing key)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/pipeline?client_id=eq.AV&source_system=eq.salesforce&object_type=eq.NoSuchObject&status=eq.active"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('empty array = PipelineNotFound per FR-PID-004', () => pm.expect(pm.response.json()).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 - Cleanup (Postman Test Data)",
+      "item": [
+        {
+          "name": "Delete pipeline_step",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/pipeline_step?pipeline_id=eq.{{pipelineId}}"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }
+          ]
+        },
+        {
+          "name": "Delete pipeline (both test pipelines)",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/pipeline?pipeline_id=in.({{pipelineId}},{{pipelineId}}-unsupported)"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }
+          ]
+        },
+        {
+          "name": "Delete field_mapping",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.{{stepPk}}"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }
+          ]
+        },
+        {
+          "name": "Delete step",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/step?step_pk=eq.{{stepPk}}"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }
+          ]
+        },
+        {
+          "name": "Delete target",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/target?client_id=eq.{{clientId}}"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }
+          ]
+        },
+        {
+          "name": "Delete client",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/client?client_id=eq.{{clientId}}"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }
+          ]
+        }
+      ]
+    }
+  ]
+}

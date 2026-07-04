@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="003-create-table-pipeline" author="erp-integration">
+        <createTable tableName="pipeline">
+            <column name="pipeline_id" type="VARCHAR(100)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version" type="VARCHAR(20)" defaultValue="1.0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_system" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="object_type" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_type" type="VARCHAR(50)" defaultValue="*">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pattern_id" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(20)" defaultValue="active">
+                <constraints nullable="false"/>
+            </column>
+            <column name="retry_max_attempts" type="INT" defaultValueNumeric="3">
+                <constraints nullable="false"/>
+            </column>
+            <column name="retry_backoff" type="VARCHAR(20)" defaultValue="exponential">
+                <constraints nullable="false"/>
+            </column>
+            <column name="retry_backoff_base_ms" type="INT" defaultValueNumeric="2000">
+                <constraints nullable="false"/>
+            </column>
+            <column name="retry_on_status_codes" type="VARCHAR(100)" defaultValue="500,502,503,504">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="pipeline" baseColumnNames="client_id"
+            referencedTableName="client" referencedColumnNames="client_id"
+            constraintName="fk_pipeline_client"/>
+    </changeSet>
+
+    <changeSet id="003b-create-pipeline-routing-index" author="erp-integration">
+        <sql>
+            CREATE UNIQUE INDEX idx_pipeline_routing
+                ON pipeline (client_id, source_system, object_type, event_type)
+                WHERE status = 'active';
+        </sql>
+        <rollback>
+            DROP INDEX IF EXISTS idx_pipeline_routing;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <include file="changes/001-create-client.xml" relativeToChangelogFile="true"/>
+    <include file="changes/002-create-target.xml" relativeToChangelogFile="true"/>
+    <include file="changes/003-create-pipeline.xml" relativeToChangelogFile="true"/>
+    <include file="changes/004-create-step.xml" relativeToChangelogFile="true"/>
+    <include file="changes/005-create-pipeline-step.xml" relativeToChangelogFile="true"/>
+    <include file="changes/006-create-field-mapping.xml" relativeToChangelogFile="true"/>
+    <include file="changes/007-seed-data.xml" relativeToChangelogFile="true"/>
+
+</databaseChangeLog>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="006-create-table-field-mapping" author="erp-integration">
+        <createTable tableName="field_mapping">
+            <column name="mapping_pk" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="step_pk" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_path" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_path" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transform_type" type="VARCHAR(50)" defaultValue="none">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transform_params" type="VARCHAR(500)"/>
+            <column name="default_value" type="VARCHAR(500)"/>
+            <column name="is_required" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sort_order" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="field_mapping" baseColumnNames="step_pk"
+            referencedTableName="step" referencedColumnNames="step_pk"
+            constraintName="fk_field_mapping_step"/>
+
+        <addUniqueConstraint tableName="field_mapping" columnNames="step_pk, target_path"
+            constraintName="uq_field_mapping_step_target"/>
+
+        <createIndex tableName="field_mapping" indexName="idx_field_mapping_step">
+            <column name="step_pk"/>
+            <column name="sort_order"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
