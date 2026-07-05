@@ -3,8 +3,19 @@ from typing import Optional, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 TransformType = Literal[
-    "RENAME", "CONCAT", "TRANSFORM", "CONST", "VARIABLE", "SPLIT",
-    "none", "date_format", "uppercase", "lowercase", "lookup", "calculate",
+    "none",
+    "type_cast",
+    "date_format",
+    "date_add",
+    "split_pick",
+    "replace",
+    "trim",
+    "round",
+    "uppercase",
+    "lowercase",
+    "titlecase",
+    "lookup",
+    "calculate",
 ]
 
 
