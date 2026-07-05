@@ -1,0 +1,30 @@
+FROM postgres:15.18-trixie
+
+# Install Java, wget and unzip
+RUN apt-get update && \
+    apt-get install -y openjdk-21-jre wget unzip && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LIQUIBASE_VERSION=5.0.3
+
+# Install Liquibase
+RUN wget https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.zip \
+    && unzip liquibase-${LIQUIBASE_VERSION}.zip -d /opt/liquibase \
+    && rm liquibase-${LIQUIBASE_VERSION}.zip
+
+ENV PATH="/opt/liquibase:${PATH}"
+
+# PostgreSQL JDBC Driver
+COPY drivers/postgresql-42.7.11.jar /opt/liquibase/lib/
+
+# Liquibase files
+COPY liquibase /opt/liquibase/migrations
+
+# Startup script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint-custom.sh
+
+RUN chmod +x /usr/local/bin/docker-entrypoint-custom.sh
+
+EXPOSE 5432
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-custom.sh"]
