@@ -10,7 +10,9 @@ safe to call with no side effects).
 
 Run:
     python app.py
-Then POST to http://localhost:8000/transform
+Then POST to http://localhost:8000/transform-pipeline (pipeline_id -- what a
+real caller like CRM/Salesforce actually knows) or
+http://localhost:8000/transform (step_pk -- kept for direct step debugging).
 
 This app is local-dev only -- not what ships to Step Functions. It exists
 so Postman has something to hit; the actual portable logic lives in
@@ -18,13 +20,42 @@ erp_transform/.
 """
 from flask import Flask, jsonify, request
 
-from erp_transform.orchestrator import transform_only
+from erp_transform.orchestrator import transform_only, transform_pipeline
 
 app = Flask(__name__)
 
 
+@app.post("/transform-pipeline")
+def transform_pipeline_route():
+    """Primary entry point: caller supplies pipeline_id (the identifier a CRM
+    actually has, per pipeline-routing-config-db-requirements.md §2-3), not
+    an internal step_pk. Runs every attached step's transform in seq order."""
+    payload = request.get_json(force=True, silent=False)
+    if payload is None or "pipeline_id" not in payload or "source" not in payload:
+        return jsonify({"error": "body must be JSON with 'pipeline_id' (string) and 'source' (object)"}), 400
+
+    pipeline_id = payload["pipeline_id"]
+    if not isinstance(pipeline_id, str) or not pipeline_id:
+        return jsonify({"error": "'pipeline_id' must be a non-empty string"}), 400
+
+    source = payload["source"]
+    if not isinstance(source, dict):
+        return jsonify({"error": "'source' must be a JSON object"}), 400
+
+    try:
+        result = transform_pipeline(pipeline_id, source)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": f"transform failed: {e}"}), 500
+
+    return jsonify(result), 200
+
+
 @app.post("/transform")
 def transform():
+    """Step-level debugging entry point (step_pk, not pipeline_id). Prefer
+    /transform-pipeline for real callers."""
     payload = request.get_json(force=True, silent=False)
     if payload is None or "step_pk" not in payload or "source" not in payload:
         return jsonify({"error": "body must be JSON with 'step_pk' (int) and 'source' (object)"}), 400

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "transformation-svc - Local Transform API",
-    "description": "Tests the local-only Flask wrapper (app.py) around erp_transform.orchestrator.transform_only(). This is the Python port of the Postgres transform_payload()/apply_field_transform() functions, exposed as a real HTTP endpoint so it can be exercised from Postman the same way as the SQL RPC endpoint in ../../documentation/postman. Never sends a request to any external/client system -- only reads pipeline config from the local Postgres and returns the transformed JSON body. Start the app first: `python app.py` (port 8000).",
+    "description": "Tests the local-only Flask wrapper (app.py) around erp_transform.orchestrator. This is the Python port of the Postgres transform_payload()/apply_field_transform() functions, exposed as a real HTTP endpoint so it can be exercised from Postman the same way as the SQL RPC endpoint in ../../documentation/postman. Never sends a request to any external/client system -- only reads pipeline config from the local Postgres and returns the transformed JSON body. Start the app first: `python app.py` (port 8000).\n\nPrimary entry point is /transform-pipeline (pipeline_id) since a real caller like a CRM knows the pipeline identifier, not the internal step_pk. /transform (step_pk) is kept for direct single-step debugging.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -27,164 +27,293 @@
       ]
     },
     {
-      "name": "Transform Full Oracle Contract Payload (step_pk=3)",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/transform",
-        "body": {
-          "mode": "raw",
-          "raw": "{\"step_pk\": 3, \"source\": {\"eventType\": \"ContractAward\", \"awardId\": \"SF-AWD-2026-0238\", \"orgId\": 300000019976011, \"contractTypeId\": 300000020150131, \"legalEntityName\": \"AeroVironment, Inc.\", \"contractTypeName\": \"Purchase Order\", \"contractNumber\": \"W58RGZ26F0238_X1\", \"startDate\": \"2026-03-20\", \"currencyCode\": \"USD\", \"invOrgName\": \"IMO-Item Master Organization\", \"invOrganizationId\": 300000020021543, \"contributionPercent\": 1, \"customerPONumber\": \"W58RGZ26F0238\", \"owningOrgName\": \"SUAS\", \"netInvoiceFlag\": true, \"buyOrSell\": \"S\", \"headerAttributes\": {\"sfQuoteNumber\": \"Q-02120\", \"sfOpportunityId\": \"OPP-4057\", \"marketSegment\": \"US Army\", \"originalContractualDate\": \"2026-07-23\", \"masterContractNumber\": \"W58RGZ-26-G-0005\", \"contractType\": \"FFP\", \"contractClass\": \"USG-DOD\", \"letterOfCredit\": \"No\", \"creditOrPerformanceGuarantee\": \"No\", \"customerAcceptanceCriteria\": \"Yes\", \"dpasRating\": \"DO_A1\", \"uidRequired\": \"No\", \"casCompliant\": \"Exempt\", \"cageCode\": \"60107\", \"naicsCode\": \"336411\", \"contractAwardBasis\": \"FAR12\", \"certifiedCostOrPricingData\": \"No\", \"dd254Issued\": \"No\", \"subcontractingPlan\": \"No\", \"convertedContract\": \"N\"}, \"parties\": [{\"partyRoleCode\": \"CUSTOMER\", \"role\": \"Customer\", \"partyName\": \"US ARMY CONTRACTING COMMAND\"}], \"lines\": [{\"lineNumber\": \"0001\", \"lineTypeId\": 300000000324971, \"lineTypeName\": \"Item, project\", \"itemName\": \"140000-001\", \"itemDescription\": \"SYSTEM, TOP, M1/2/5 NATO, HD40-LVV+MOD INT, HD40-LVV+RELAY INT, 2AV, VIGILANT SPIRIT, P550\", \"startDate\": \"2026-03-20\", \"endDate\": \"2026-06-24\", \"uomCode\": \"EA\", \"unitOfMeasure\": \"Each\", \"itemQuantity\": 1, \"unitPrice\": 0, \"lineAmount\": 0, \"lineAttributes\": {\"contractLineDueDate\": \"2026-06-24\", \"deliveryDueDate\": \"2026-04-10\", \"glDivision\": \"100\", \"glRevenueAccount\": \"40000\", \"glProductLine\": \"1054\", \"nonProjectRelatedContractLine\": \"No\", \"avalaraTaxCode\": \"|Exempt|\", \"fob\": \"FOB ORIGIN\", \"endCountry\": \"US\", \"freightTerms\": \"NA\", \"shippingInstructions\": \"Notify Maj Townsend one week prior. Army requests we ship-in-place, see language on page 2. WAWF required.\", \"partialShipmentFlag\": \"Yes\", \"customerAcceptanceInspection\": \"WAWF - Origin\"}}]}}"
-        }
-      },
-      "event": [
+      "name": "01 - Transform By Pipeline ID (primary entry point)",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
-              "const body = pm.response.json();",
-              "pm.test('header scalars correct', () => {",
-              "  pm.expect(body.OrgId).to.eql(300000019976011);",
-              "  pm.expect(body.ContractNumber).to.eql('W58RGZ26F0238_X1');",
-              "});",
-              "pm.test('date_format transform applied (yyyy-MM-dd -> MM-dd-yyyy)', () => {",
-              "  pm.expect(body.StartDate).to.eql('03-20-2026');",
-              "});",
-              "pm.test('ContractHeaderFlexfieldVA singleton array', () => {",
-              "  pm.expect(body.ContractHeaderFlexfieldVA.length).to.eql(1);",
-              "  pm.expect(body.ContractHeaderFlexfieldVA[0].__FLEX_Context).to.eql('Sell Type Contract');",
-              "});",
-              "pm.test('ContractParty repeating array', () => {",
-              "  pm.expect(body.ContractParty).to.eql([{ PartyRoleCode: 'CUSTOMER', Role: 'Customer', PartyName: 'US ARMY CONTRACTING COMMAND' }]);",
-              "});",
-              "pm.test('ContractLine with nested flexfield', () => {",
-              "  pm.expect(body.ContractLine[0].ItemName).to.eql('140000-001');",
-              "  pm.expect(body.ContractLine[0].ContractAllLineDesFlexVA[0].shippingInstructions).to.include('WAWF required');",
-              "});"
-            ]
-          }
+          "name": "Transform Full Oracle Contract Pipeline (single step)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform-pipeline",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pipeline_id\": \"award-to-oracle-contract-full-v1\", \"source\": {\"eventType\": \"ContractAward\", \"awardId\": \"SF-AWD-2026-0238\", \"orgId\": 300000019976011, \"contractTypeId\": 300000020150131, \"legalEntityName\": \"AeroVironment, Inc.\", \"contractTypeName\": \"Purchase Order\", \"contractNumber\": \"W58RGZ26F0238_X1\", \"startDate\": \"2026-03-20\", \"currencyCode\": \"USD\", \"invOrgName\": \"IMO-Item Master Organization\", \"invOrganizationId\": 300000020021543, \"contributionPercent\": 1, \"customerPONumber\": \"W58RGZ26F0238\", \"owningOrgName\": \"SUAS\", \"netInvoiceFlag\": true, \"buyOrSell\": \"S\", \"headerAttributes\": {\"sfQuoteNumber\": \"Q-02120\", \"sfOpportunityId\": \"OPP-4057\", \"marketSegment\": \"US Army\", \"originalContractualDate\": \"2026-07-23\", \"masterContractNumber\": \"W58RGZ-26-G-0005\", \"contractType\": \"FFP\", \"contractClass\": \"USG-DOD\", \"letterOfCredit\": \"No\", \"creditOrPerformanceGuarantee\": \"No\", \"customerAcceptanceCriteria\": \"Yes\", \"dpasRating\": \"DO_A1\", \"uidRequired\": \"No\", \"casCompliant\": \"Exempt\", \"cageCode\": \"60107\", \"naicsCode\": \"336411\", \"contractAwardBasis\": \"FAR12\", \"certifiedCostOrPricingData\": \"No\", \"dd254Issued\": \"No\", \"subcontractingPlan\": \"No\", \"convertedContract\": \"N\"}, \"parties\": [{\"partyRoleCode\": \"CUSTOMER\", \"role\": \"Customer\", \"partyName\": \"US ARMY CONTRACTING COMMAND\"}], \"lines\": [{\"lineNumber\": \"0001\", \"lineTypeId\": 300000000324971, \"lineTypeName\": \"Item, project\", \"itemName\": \"140000-001\", \"itemDescription\": \"SYSTEM, TOP, M1/2/5 NATO, HD40-LVV+MOD INT, HD40-LVV+RELAY INT, 2AV, VIGILANT SPIRIT, P550\", \"startDate\": \"2026-03-20\", \"endDate\": \"2026-06-24\", \"uomCode\": \"EA\", \"unitOfMeasure\": \"Each\", \"itemQuantity\": 1, \"unitPrice\": 0, \"lineAmount\": 0, \"lineAttributes\": {\"contractLineDueDate\": \"2026-06-24\", \"deliveryDueDate\": \"2026-04-10\", \"glDivision\": \"100\", \"glRevenueAccount\": \"40000\", \"glProductLine\": \"1054\", \"nonProjectRelatedContractLine\": \"No\", \"avalaraTaxCode\": \"|Exempt|\", \"fob\": \"FOB ORIGIN\", \"endCountry\": \"US\", \"freightTerms\": \"NA\", \"shippingInstructions\": \"Notify Maj Townsend one week prior. Army requests we ship-in-place, see language on page 2. WAWF required.\", \"partialShipmentFlag\": \"Yes\", \"customerAcceptanceInspection\": \"WAWF - Origin\"}}]}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('pipeline metadata correct', () => {",
+                  "  pm.expect(body.pipeline_id).to.eql('award-to-oracle-contract-full-v1');",
+                  "  pm.expect(body.pattern_id).to.eql('PAT-01');",
+                  "});",
+                  "pm.test('single step in seq order', () => {",
+                  "  pm.expect(body.steps.length).to.eql(1);",
+                  "  pm.expect(body.steps[0].seq).to.eql(1);",
+                  "  pm.expect(body.steps[0].step_name).to.eql('create-oracle-contract-full');",
+                  "  pm.expect(body.steps[0].method).to.eql('POST');",
+                  "});",
+                  "const transformed = body.steps[0].transformed_body;",
+                  "pm.test('header scalars correct', () => {",
+                  "  pm.expect(transformed.OrgId).to.eql(300000019976011);",
+                  "  pm.expect(transformed.ContractNumber).to.eql('W58RGZ26F0238_X1');",
+                  "});",
+                  "pm.test('date_format transform applied (yyyy-MM-dd -> MM-dd-yyyy)', () => {",
+                  "  pm.expect(transformed.StartDate).to.eql('03-20-2026');",
+                  "});",
+                  "pm.test('ContractHeaderFlexfieldVA singleton array', () => {",
+                  "  pm.expect(transformed.ContractHeaderFlexfieldVA.length).to.eql(1);",
+                  "  pm.expect(transformed.ContractHeaderFlexfieldVA[0].__FLEX_Context).to.eql('Sell Type Contract');",
+                  "});",
+                  "pm.test('ContractParty repeating array', () => {",
+                  "  pm.expect(transformed.ContractParty).to.eql([{ PartyRoleCode: 'CUSTOMER', Role: 'Customer', PartyName: 'US ARMY CONTRACTING COMMAND' }]);",
+                  "});",
+                  "pm.test('ContractLine with nested flexfield', () => {",
+                  "  pm.expect(transformed.ContractLine[0].ItemName).to.eql('140000-001');",
+                  "  pm.expect(transformed.ContractLine[0].ContractAllLineDesFlexVA[0].shippingInstructions).to.include('WAWF required');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transform PAT-03 Pipeline (multi-step: lookup-project then create-contract)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform-pipeline",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"award-to-oracle-contract-v1\",\n  \"source\": {\n    \"contract\": { \"name\": \"Government Infrastructure Project\" },\n    \"amount\": 500000,\n    \"currency\": \"USD\",\n    \"projectNumber\": \"P-2024-100\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('pattern is PAT-03', () => pm.expect(body.pattern_id).to.eql('PAT-03'));",
+                  "pm.test('both steps present in seq order', () => {",
+                  "  pm.expect(body.steps.map(s => s.seq)).to.eql([1, 2]);",
+                  "  pm.expect(body.steps.map(s => s.step_name)).to.eql(['lookup-project', 'create-contract']);",
+                  "});",
+                  "pm.test('lookup-project has no body (GET/extract step, no field_mapping rows)', () => {",
+                  "  pm.expect(body.steps[0].method).to.eql('GET');",
+                  "  pm.expect(body.steps[0].transformed_body).to.eql({});",
+                  "});",
+                  "pm.test('create-contract transformed from source', () => {",
+                  "  const created = body.steps[1].transformed_body;",
+                  "  pm.expect(created.ContractName).to.eql('Government Infrastructure Project');",
+                  "  pm.expect(created.ContractAmount).to.eql(500000);",
+                  "  pm.expect(created.CurrencyCode).to.eql('USD');",
+                  "});",
+                  "pm.test('ProjectId is null since lookup-project GET was never actually sent', () => {",
+                  "  pm.expect(body.steps[1].transformed_body.ProjectId).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing pipeline_id returns 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform-pipeline",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"source\": {} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('error message present', () => pm.expect(pm.response.json().error).to.exist);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing source returns 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform-pipeline",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"pipeline_id\": \"award-to-oracle-contract-full-v1\" }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown pipeline_id returns 404",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform-pipeline",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"pipeline_id\": \"does-not-exist\", \"source\": {} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('error mentions the pipeline_id', () => pm.expect(pm.response.json().error).to.include('does-not-exist'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "Missing step_pk returns 400",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/transform",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"source\": {} }"
-        }
-      },
-      "event": [
+      "name": "02 - Legacy: step_pk direct debugging",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
-              "pm.test('error message present', () => pm.expect(pm.response.json().error).to.exist);"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Missing source returns 400",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/transform",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"step_pk\": 3 }"
-        }
-      },
-      "event": [
+          "name": "Transform Full Oracle Contract Payload (step_pk=3)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"step_pk\": 3, \"source\": {\"eventType\": \"ContractAward\", \"awardId\": \"SF-AWD-2026-0238\", \"orgId\": 300000019976011, \"contractTypeId\": 300000020150131, \"legalEntityName\": \"AeroVironment, Inc.\", \"contractTypeName\": \"Purchase Order\", \"contractNumber\": \"W58RGZ26F0238_X1\", \"startDate\": \"2026-03-20\", \"currencyCode\": \"USD\", \"invOrgName\": \"IMO-Item Master Organization\", \"invOrganizationId\": 300000020021543, \"contributionPercent\": 1, \"customerPONumber\": \"W58RGZ26F0238\", \"owningOrgName\": \"SUAS\", \"netInvoiceFlag\": true, \"buyOrSell\": \"S\", \"headerAttributes\": {\"sfQuoteNumber\": \"Q-02120\", \"sfOpportunityId\": \"OPP-4057\", \"marketSegment\": \"US Army\", \"originalContractualDate\": \"2026-07-23\", \"masterContractNumber\": \"W58RGZ-26-G-0005\", \"contractType\": \"FFP\", \"contractClass\": \"USG-DOD\", \"letterOfCredit\": \"No\", \"creditOrPerformanceGuarantee\": \"No\", \"customerAcceptanceCriteria\": \"Yes\", \"dpasRating\": \"DO_A1\", \"uidRequired\": \"No\", \"casCompliant\": \"Exempt\", \"cageCode\": \"60107\", \"naicsCode\": \"336411\", \"contractAwardBasis\": \"FAR12\", \"certifiedCostOrPricingData\": \"No\", \"dd254Issued\": \"No\", \"subcontractingPlan\": \"No\", \"convertedContract\": \"N\"}, \"parties\": [{\"partyRoleCode\": \"CUSTOMER\", \"role\": \"Customer\", \"partyName\": \"US ARMY CONTRACTING COMMAND\"}], \"lines\": [{\"lineNumber\": \"0001\", \"lineTypeId\": 300000000324971, \"lineTypeName\": \"Item, project\", \"itemName\": \"140000-001\", \"itemDescription\": \"SYSTEM, TOP, M1/2/5 NATO, HD40-LVV+MOD INT, HD40-LVV+RELAY INT, 2AV, VIGILANT SPIRIT, P550\", \"startDate\": \"2026-03-20\", \"endDate\": \"2026-06-24\", \"uomCode\": \"EA\", \"unitOfMeasure\": \"Each\", \"itemQuantity\": 1, \"unitPrice\": 0, \"lineAmount\": 0, \"lineAttributes\": {\"contractLineDueDate\": \"2026-06-24\", \"deliveryDueDate\": \"2026-04-10\", \"glDivision\": \"100\", \"glRevenueAccount\": \"40000\", \"glProductLine\": \"1054\", \"nonProjectRelatedContractLine\": \"No\", \"avalaraTaxCode\": \"|Exempt|\", \"fob\": \"FOB ORIGIN\", \"endCountry\": \"US\", \"freightTerms\": \"NA\", \"shippingInstructions\": \"Notify Maj Townsend one week prior. Army requests we ship-in-place, see language on page 2. WAWF required.\", \"partialShipmentFlag\": \"Yes\", \"customerAcceptanceInspection\": \"WAWF - Origin\"}}]}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('header scalars correct', () => {",
+                  "  pm.expect(body.OrgId).to.eql(300000019976011);",
+                  "  pm.expect(body.ContractNumber).to.eql('W58RGZ26F0238_X1');",
+                  "});",
+                  "pm.test('date_format transform applied (yyyy-MM-dd -> MM-dd-yyyy)', () => {",
+                  "  pm.expect(body.StartDate).to.eql('03-20-2026');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Non-integer step_pk returns 400",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/transform",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"step_pk\": \"not-a-number\", \"source\": {} }"
-        }
-      },
-      "event": [
+          "name": "Missing step_pk returns 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"source\": {} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('error message present', () => pm.expect(pm.response.json().error).to.exist);"
+                ]
+              }
+            }
+          ]
+        },
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Unknown step_pk returns 404",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/transform",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"step_pk\": 999999, \"source\": {} }"
-        }
-      },
-      "event": [
+          "name": "Missing source returns 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"step_pk\": 3 }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));",
-              "pm.test('error mentions the step_pk', () => pm.expect(pm.response.json().error).to.include('999999'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "Transform PAT-03 Pipeline (step_pk=2, lookup-then-post shape)",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/transform",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"step_pk\": 2,\n  \"source\": {\n    \"contract\": { \"name\": \"Government Infrastructure Project\" },\n    \"amount\": 500000,\n    \"currency\": \"USD\",\n    \"steps\": { \"lookup-project\": { \"ProjectId\": 3000012456 } }\n  }\n}"
-        }
-      },
-      "event": [
+          "name": "Non-integer step_pk returns 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"step_pk\": \"not-a-number\", \"source\": {} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
-              "const body = pm.response.json();",
-              "pm.test('flat mapping resolved from nested steps.* source path', () => {",
-              "  pm.expect(body.ProjectId).to.eql(3000012456);",
-              "  pm.expect(body.ContractName).to.eql('Government Infrastructure Project');",
-              "  pm.expect(body.ContractAmount).to.eql(500000);",
-              "});",
-              "pm.test('default_value applied when currency present (no default needed)', () => {",
-              "  pm.expect(body.CurrencyCode).to.eql('USD');",
-              "});"
-            ]
-          }
+          "name": "Unknown step_pk returns 404",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/transform",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"step_pk\": 999999, \"source\": {} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('error mentions the step_pk', () => pm.expect(pm.response.json().error).to.include('999999'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

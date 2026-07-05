@@ -42,6 +42,18 @@ Requires the local Docker Postgres from `../database` to be up and migrated
 
 ## Running the transform stage only (no HTTP call, safe against any config)
 
+By pipeline_id -- what a real caller like CRM/Salesforce actually knows, per
+`pipeline-routing-config-db-requirements.md` §2-3. Runs every step attached
+to the pipeline (via `pipeline_step`) in `seq` order, exposing each step's
+output to later steps under `steps.<step_name>.<field>` the same way the SQL
+engine and pipeline JSON config do:
+
+```bash
+python cli.py --pipeline-id award-to-oracle-contract-full-v1 --input ../documentation/sample-payloads/salesforce-contract-award-input.json
+```
+
+By step_pk -- direct single-step debugging:
+
 ```bash
 python cli.py --step-pk 3 --input ../documentation/sample-payloads/salesforce-contract-award-input.json
 ```

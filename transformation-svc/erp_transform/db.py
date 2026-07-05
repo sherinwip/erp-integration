@@ -42,6 +42,25 @@ class Step:
 
 
 @dataclass(frozen=True)
+class Pipeline:
+    pipeline_id: str
+    client_id: str
+    source_system: str
+    object_type: str
+    event_type: str
+    pattern_id: str
+    status: str
+
+
+@dataclass(frozen=True)
+class PipelineStep:
+    """One (seq, step) attachment from the pipeline_step junction, joined
+    with the step row itself -- the ordered execution list for a pipeline."""
+    seq: int
+    step: Step
+
+
+@dataclass(frozen=True)
 class FieldMapping:
     mapping_pk: int
     step_pk: int
@@ -83,6 +102,50 @@ def get_step(conn, step_pk: int) -> Step:
         if row is None:
             raise ValueError(f"step_pk {step_pk} not found")
         return Step(**row)
+
+
+def get_pipeline(conn, pipeline_id: str) -> Pipeline:
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT pipeline_id, client_id, source_system, object_type,
+                   event_type, pattern_id, status
+            FROM pipeline
+            WHERE pipeline_id = %s
+            """,
+            (pipeline_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise ValueError(f"pipeline_id {pipeline_id!r} not found")
+        return Pipeline(**row)
+
+
+def get_pipeline_steps(conn, pipeline_id: str) -> "list[PipelineStep]":
+    """Ordered (by seq) list of steps attached to a pipeline via pipeline_step.
+    Mirrors the runtime query in pipeline-routing-config-db-requirements.md §4.8."""
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT ps.seq, s.step_pk, s.client_id, s.target_id, s.step_name,
+                   s.method, s.path, s.query_params, s.headers, s.extract,
+                   s.on_not_found, s.on_multiple_results, s.rollback_method,
+                   s.rollback_path
+            FROM pipeline_step ps
+            JOIN step s ON s.step_pk = ps.step_pk
+            WHERE ps.pipeline_id = %s
+            ORDER BY ps.seq
+            """,
+            (pipeline_id,),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            raise ValueError(f"pipeline_id {pipeline_id!r} has no attached steps")
+        result = []
+        for row in rows:
+            seq = row.pop("seq")
+            result.append(PipelineStep(seq=seq, step=Step(**row)))
+        return result
 
 
 def get_target(conn, target_id: str) -> Target:
