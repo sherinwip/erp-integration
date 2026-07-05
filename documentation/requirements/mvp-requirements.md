@@ -55,7 +55,7 @@ fan-out with lookup, fan-out split) are deferred.
 |----|---------------|--------------|----------|
 | **PAT-01** | Simple Transform and POST | 1 inbound payload → 1 ERP payload → 1 POST → 1 target | P1 |
 | **PAT-03** | Lookup then POST | GET lookup to resolve a dependency, then 1 POST → 1 target | P1 |
-| **PAT-06** | Fan-out Simple POST | 1 payload → 1 POST per target → multiple targets in parallel | P1 |
+| **PAT-06** | Fan-out Simple POST | 1 payload → 1 POST per target → multiple targets in sequential | P1 |
 
 Full flow diagrams, concrete request/response examples, and acceptance criteria for these
 three patterns are unchanged from `integration-engine-requirements-v2.md` §5.1, §5.3, §5.6 —
@@ -89,7 +89,7 @@ Only P1 rows from the source FR tables. IDs preserved for traceability back to t
 | FR-ORC-002 | Support HTTP POST |
 | FR-ORC-006 | Each API step independently configurable: endpoint, method, headers, query params, body |
 | FR-ORC-007 | Support sequential API chains where later steps depend on earlier responses |
-| FR-ORC-008 | Support parallel fan-out execution across multiple ERP targets |
+| FR-ORC-008 | Support sequential fan-out execution across multiple ERP targets |
 | FR-ORC-009 | Per-ERP auth credentials (OAuth 2.0, Basic Auth, API Key) independently configurable |
 | FR-ORC-010 | API call timeout configurable per step; default 30s |
 
