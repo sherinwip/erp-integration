@@ -568,11 +568,23 @@ CREATE INDEX idx_field_mapping_step ON field_mapping (step_pk, sort_order);
 | Value | Behaviour | `transform_params` example |
 |-------|-----------|---------------------------|
 | `none` | Pass value through unchanged | — |
+| `type_cast` | Convert value to `int`, `float`, `bool`, or `string` | `{"targetType":"int"}` |
 | `date_format` | Reformat date string | `{"inputFormat":"yyyy-MM-dd","outputFormat":"DD-MON-YYYY"}` |
+| `date_add` | Add/subtract a unit of time from a date | `{"unit":"days","amount":30,"inputFormat":"yyyy-MM-dd","outputFormat":"yyyy-MM-dd"}` |
+| `split_pick` | Split string on a delimiter, take the Nth part | `{"delimiter":"-","index":1}` |
+| `replace` | Substitute a substring or regex match | `{"find":"-","replace":"/","regex":false}` |
+| `trim` | Strip leading/trailing whitespace | — |
+| `round` | Round a numeric value to N decimals | `{"decimals":2}` |
 | `uppercase` | Convert string to upper case | — |
 | `lowercase` | Convert string to lower case | — |
-| `lookup` | Translate value via a static lookup table | `{"table":"currency_codes","key":"USD","valueField":"code"}` |
-| `calculate` | Evaluate a simple expression | `{"expression":"{{source.unitPrice}} * {{source.quantity}}"}` |
+| `titlecase` | Convert string to title case | — |
+| `lookup` | Translate value via a static lookup table (not yet implemented — falls through unchanged) | `{"table":"currency_codes","key":"USD","valueField":"code"}` |
+| `calculate` | Evaluate a simple expression (not yet implemented — falls through unchanged) | `{"expression":"{{source.unitPrice}} * {{source.quantity}}"}` |
+
+`transform_type` is a closed set enforced at the API layer (`erp-config-api`'s `TransformType`
+Pydantic `Literal`) and at the transform engine (`transformation-svc`'s `SUPPORTED_TRANSFORM_TYPES`);
+a value outside this set is rejected — API calls get a 422, and the transform engine raises
+`ValueError` rather than silently shipping an untransformed field.
 
 **Sample rows — the exact `create-contract` body from §3.3, now expressed as mapping rows
 instead of inline JSON (`step_pk = 2` from the §4.5b example):**

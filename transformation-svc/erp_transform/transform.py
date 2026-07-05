@@ -22,12 +22,19 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from .db import FieldMapping
 
 _LITERAL_PREFIX = "__literal."
+
+# Closed set of supported transform_type values -- keep in sync with
+# erp-config-api/app/schemas/field_mapping.py's TransformType Literal.
+SUPPORTED_TRANSFORM_TYPES = {
+    "none", "type_cast", "date_format", "date_add", "split_pick", "replace",
+    "trim", "round", "uppercase", "lowercase", "titlecase", "lookup", "calculate",
+}
 
 
 def _get_path(source: Optional[dict], path: str) -> Any:
@@ -58,13 +65,30 @@ def _java_date_format_to_strftime(fmt: str) -> str:
     return result
 
 
+_TYPE_CAST_CONVERTERS = {
+    "int": int,
+    "float": float,
+    "bool": lambda v: str(v).strip().lower() in ("true", "1", "yes"),
+    "string": str,
+}
+
+
 def apply_field_transform(value: Any, transform_type: str, transform_params: Optional[str]) -> Any:
     """Mirrors apply_field_transform() in changeset 011, extended in Python
-    where iterating is cheaper than editing PL/pgSQL."""
+    where iterating is cheaper than editing PL/pgSQL.
+
+    Raises ValueError for a transform_type outside SUPPORTED_TRANSFORM_TYPES --
+    a bad value should fail the pipeline run loudly rather than silently ship
+    an untransformed field."""
+    if transform_type not in SUPPORTED_TRANSFORM_TYPES:
+        raise ValueError(f"Unsupported transform_type: {transform_type!r}")
+
     if value is None:
         return value
-    if not transform_type or transform_type == "none":
+    if transform_type == "none":
         return value
+
+    params = json.loads(transform_params) if transform_params else {}
 
     if transform_type == "uppercase":
         return str(value).upper()
@@ -72,13 +96,41 @@ def apply_field_transform(value: Any, transform_type: str, transform_params: Opt
     if transform_type == "lowercase":
         return str(value).lower()
 
+    if transform_type == "titlecase":
+        return str(value).title()
+
     if transform_type == "trim":
         return str(value).strip()
+
+    if transform_type == "round":
+        decimals = params.get("decimals", 0)
+        return round(float(value), decimals)
+
+    if transform_type == "type_cast":
+        target_type = params.get("targetType", "string")
+        converter = _TYPE_CAST_CONVERTERS.get(target_type)
+        if converter is None:
+            raise ValueError(f"Unsupported type_cast targetType: {target_type!r}")
+        return converter(value)
+
+    if transform_type == "replace":
+        find, repl = params.get("find", ""), params.get("replace", "")
+        if params.get("regex"):
+            return re.sub(find, repl, str(value))
+        return str(value).replace(find, repl)
+
+    if transform_type == "split_pick":
+        delimiter = params.get("delimiter", ",")
+        index = params.get("index", 0)
+        parts = str(value).split(delimiter)
+        try:
+            return parts[index]
+        except IndexError:
+            return None
 
     if transform_type == "date_format":
         if not isinstance(value, str) or not value:
             return value
-        params = json.loads(transform_params) if transform_params else {}
         input_format = _java_date_format_to_strftime(params.get("inputFormat", "yyyy-MM-dd"))
         output_format = _java_date_format_to_strftime(params.get("outputFormat", "yyyy-MM-dd"))
         try:
@@ -87,8 +139,38 @@ def apply_field_transform(value: Any, transform_type: str, transform_params: Opt
             return value
         return parsed.strftime(output_format)
 
-    # 'lookup' and 'calculate' are not implemented yet (no lookup-table storage,
-    # no expression evaluator) -- fall through to the raw value rather than erroring.
+    if transform_type == "date_add":
+        if not isinstance(value, str) or not value:
+            return value
+        input_format = _java_date_format_to_strftime(params.get("inputFormat", "yyyy-MM-dd"))
+        output_format = _java_date_format_to_strftime(params.get("outputFormat", params.get("inputFormat", "yyyy-MM-dd")))
+        unit = params.get("unit", "days")
+        amount = params.get("amount", 0)
+        try:
+            parsed = datetime.strptime(value, input_format)
+        except ValueError:
+            return value
+        if unit == "days":
+            parsed = parsed + timedelta(days=amount)
+        elif unit == "months":
+            month_index = parsed.month - 1 + amount
+            year = parsed.year + month_index // 12
+            month = month_index % 12 + 1
+            day = min(parsed.day, [31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
+                                    31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1])
+            parsed = parsed.replace(year=year, month=month, day=day)
+        elif unit == "years":
+            try:
+                parsed = parsed.replace(year=parsed.year + amount)
+            except ValueError:
+                parsed = parsed.replace(year=parsed.year + amount, day=28)
+        else:
+            raise ValueError(f"Unsupported date_add unit: {unit!r}")
+        return parsed.strftime(output_format)
+
+    # 'lookup' and 'calculate' are supported transform_types but not yet
+    # implemented (no lookup-table storage, no expression evaluator) --
+    # fall through to the raw value rather than erroring.
     return value
 
 
