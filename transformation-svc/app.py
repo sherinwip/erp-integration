@@ -3,86 +3,105 @@
 Minimal local-only HTTP wrapper around the transform stage, so it can be
 exercised from Postman/curl exactly like the SQL RPC endpoint
 (documentation/postman) already is -- gives a real request/response loop to
-test against while this is still a local Flask app, and roughly mirrors the
+test against while this is still a local FastAPI app, and roughly mirrors the
 shape an API Gateway + Lambda front door would have later (one route per
 stage; transform is the only one exposed here since it's the only stage
 safe to call with no side effects).
 
 Run:
-    python app.py
+    uvicorn app:app --reload --port 8000
+    (or: python app.py)
 Then POST to http://localhost:8000/transform-pipeline (pipeline_id -- what a
 real caller like CRM/Salesforce actually knows) or
 http://localhost:8000/transform (step_pk -- kept for direct step debugging).
+
+FastAPI over Flask here specifically because this is meant to evolve toward
+Step Functions/Lambda: request/response validation is declarative (Pydantic
+models below replace what was manual isinstance() checking in the Flask
+version), an OpenAPI/Swagger UI is generated for free at /docs, and the
+async-native request handling plus Mangum-style ASGI adapters are the
+standard path onto Lambda when this stops being a local Flask/uvicorn app.
 
 This app is local-dev only -- not what ships to Step Functions. It exists
 so Postman has something to hit; the actual portable logic lives in
 erp_transform/.
 """
-from flask import Flask, jsonify, request
+from typing import Any, Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from erp_transform.orchestrator import transform_only, transform_pipeline
 
-app = Flask(__name__)
+app = FastAPI(
+    title="transformation-svc (local dev)",
+    description=(
+        "Local-only wrapper around erp_transform.orchestrator. "
+        "Never calls any external/client endpoint -- transform-only, reads "
+        "pipeline config from the local Postgres."
+    ),
+)
 
 
-@app.post("/transform-pipeline")
-def transform_pipeline_route():
+class TransformPipelineRequest(BaseModel):
+    pipeline_id: str = Field(..., min_length=1)
+    source: dict[str, Any]
+
+
+class TransformStepRequest(BaseModel):
+    step_pk: int
+    source: dict[str, Any]
+
+
+class StepResult(BaseModel):
+    seq: int
+    step_name: str
+    target_name: str
+    method: str
+    transformed_body: dict[str, Any]
+
+
+class TransformPipelineResponse(BaseModel):
+    pipeline_id: str
+    pattern_id: str
+    steps: list[StepResult]
+
+
+class HealthResponse(BaseModel):
+    status: str
+
+
+@app.post("/transform-pipeline", response_model=TransformPipelineResponse)
+def transform_pipeline_route(body: TransformPipelineRequest):
     """Primary entry point: caller supplies pipeline_id (the identifier a CRM
     actually has, per pipeline-routing-config-db-requirements.md §2-3), not
     an internal step_pk. Runs every attached step's transform in seq order."""
-    payload = request.get_json(force=True, silent=False)
-    if payload is None or "pipeline_id" not in payload or "source" not in payload:
-        return jsonify({"error": "body must be JSON with 'pipeline_id' (string) and 'source' (object)"}), 400
-
-    pipeline_id = payload["pipeline_id"]
-    if not isinstance(pipeline_id, str) or not pipeline_id:
-        return jsonify({"error": "'pipeline_id' must be a non-empty string"}), 400
-
-    source = payload["source"]
-    if not isinstance(source, dict):
-        return jsonify({"error": "'source' must be a JSON object"}), 400
-
     try:
-        result = transform_pipeline(pipeline_id, source)
+        return transform_pipeline(body.pipeline_id, body.source)
     except ValueError as e:
-        return jsonify({"error": str(e)}), 404
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        return jsonify({"error": f"transform failed: {e}"}), 500
-
-    return jsonify(result), 200
+        raise HTTPException(status_code=500, detail=f"transform failed: {e}")
 
 
 @app.post("/transform")
-def transform():
+def transform_route(body: TransformStepRequest):
     """Step-level debugging entry point (step_pk, not pipeline_id). Prefer
     /transform-pipeline for real callers."""
-    payload = request.get_json(force=True, silent=False)
-    if payload is None or "step_pk" not in payload or "source" not in payload:
-        return jsonify({"error": "body must be JSON with 'step_pk' (int) and 'source' (object)"}), 400
-
     try:
-        step_pk = int(payload["step_pk"])
-    except (TypeError, ValueError):
-        return jsonify({"error": "'step_pk' must be an integer"}), 400
-
-    source = payload["source"]
-    if not isinstance(source, dict):
-        return jsonify({"error": "'source' must be a JSON object"}), 400
-
-    try:
-        result = transform_only(step_pk, source)
+        return transform_only(body.step_pk, body.source)
     except ValueError as e:
-        return jsonify({"error": str(e)}), 404
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        return jsonify({"error": f"transform failed: {e}"}), 500
-
-    return jsonify(result), 200
+        raise HTTPException(status_code=500, detail=f"transform failed: {e}")
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 def health():
-    return jsonify({"status": "ok"}), 200
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
