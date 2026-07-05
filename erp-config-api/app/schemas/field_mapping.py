@@ -2,7 +2,10 @@ from typing import Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-TransformType = Literal["none", "date_format", "uppercase", "lowercase", "lookup", "calculate"]
+TransformType = Literal[
+    "RENAME", "CONCAT", "TRANSFORM", "CONST", "VARIABLE", "SPLIT",
+    "none", "date_format", "uppercase", "lowercase", "lookup", "calculate",
+]
 
 
 class FieldMappingBase(BaseModel):
