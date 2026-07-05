@@ -728,6 +728,50 @@
               }
             }
           ]
+        },
+        {
+          "name": "Transform Sample Salesforce Input to Oracle Contract JSON (RPC)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/rpc/transform_payload",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"p_step_pk\": 3, \"p_source\": {\"eventType\": \"ContractAward\", \"awardId\": \"SF-AWD-2026-0238\", \"orgId\": 300000019976011, \"contractTypeId\": 300000020150131, \"legalEntityName\": \"AeroVironment, Inc.\", \"contractTypeName\": \"Purchase Order\", \"contractNumber\": \"W58RGZ26F0238_X1\", \"startDate\": \"2026-03-20\", \"currencyCode\": \"USD\", \"invOrgName\": \"IMO-Item Master Organization\", \"invOrganizationId\": 300000020021543, \"contributionPercent\": 1, \"customerPONumber\": \"W58RGZ26F0238\", \"owningOrgName\": \"SUAS\", \"netInvoiceFlag\": true, \"buyOrSell\": \"S\", \"headerAttributes\": {\"sfQuoteNumber\": \"Q-02120\", \"sfOpportunityId\": \"OPP-4057\", \"marketSegment\": \"US Army\", \"originalContractualDate\": \"2026-07-23\", \"masterContractNumber\": \"W58RGZ-26-G-0005\", \"contractType\": \"FFP\", \"contractClass\": \"USG-DOD\", \"letterOfCredit\": \"No\", \"creditOrPerformanceGuarantee\": \"No\", \"customerAcceptanceCriteria\": \"Yes\", \"dpasRating\": \"DO_A1\", \"uidRequired\": \"No\", \"casCompliant\": \"Exempt\", \"cageCode\": \"60107\", \"naicsCode\": \"336411\", \"contractAwardBasis\": \"FAR12\", \"certifiedCostOrPricingData\": \"No\", \"dd254Issued\": \"No\", \"subcontractingPlan\": \"No\", \"convertedContract\": \"N\"}, \"parties\": [{\"partyRoleCode\": \"CUSTOMER\", \"role\": \"Customer\", \"partyName\": \"US ARMY CONTRACTING COMMAND\"}], \"lines\": [{\"lineNumber\": \"0001\", \"lineTypeId\": 300000000324971, \"lineTypeName\": \"Item, project\", \"itemName\": \"140000-001\", \"itemDescription\": \"SYSTEM, TOP, M1/2/5 NATO, HD40-LVV+MOD INT, HD40-LVV+RELAY INT, 2AV, VIGILANT SPIRIT, P550\", \"startDate\": \"2026-03-20\", \"endDate\": \"2026-06-24\", \"uomCode\": \"EA\", \"unitOfMeasure\": \"Each\", \"itemQuantity\": 1, \"unitPrice\": 0, \"lineAmount\": 0, \"lineAttributes\": {\"contractLineDueDate\": \"2026-06-24\", \"deliveryDueDate\": \"2026-04-10\", \"glDivision\": \"100\", \"glRevenueAccount\": \"40000\", \"glProductLine\": \"1054\", \"nonProjectRelatedContractLine\": \"No\", \"avalaraTaxCode\": \"|Exempt|\", \"fob\": \"FOB ORIGIN\", \"endCountry\": \"US\", \"freightTerms\": \"NA\", \"shippingInstructions\": \"Notify Maj Townsend one week prior. Army requests we ship-in-place, see language on page 2. WAWF required.\", \"partialShipmentFlag\": \"Yes\", \"customerAcceptanceInspection\": \"WAWF - Origin\"}}]}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('header scalars transformed correctly', () => {",
+                  "  pm.expect(body.OrgId).to.eql(300000019976011);",
+                  "  pm.expect(body.ContractNumber).to.eql('W58RGZ26F0238_X1');",
+                  "  pm.expect(body.LegalEntityName).to.eql('AeroVironment, Inc.');",
+                  "});",
+                  "pm.test('ContractHeaderFlexfieldVA is singleton array with __FLEX_Context', () => {",
+                  "  pm.expect(body.ContractHeaderFlexfieldVA.length).to.eql(1);",
+                  "  pm.expect(body.ContractHeaderFlexfieldVA[0].__FLEX_Context).to.eql('Sell Type Contract');",
+                  "  pm.expect(body.ContractHeaderFlexfieldVA[0].cageCode).to.eql('60107');",
+                  "});",
+                  "pm.test('ContractParty has one entry from parties[]', () => {",
+                  "  pm.expect(body.ContractParty.length).to.eql(1);",
+                  "  pm.expect(body.ContractParty[0].PartyName).to.eql('US ARMY CONTRACTING COMMAND');",
+                  "});",
+                  "pm.test('ContractLine has one entry from lines[] with nested flexfield', () => {",
+                  "  pm.expect(body.ContractLine.length).to.eql(1);",
+                  "  pm.expect(body.ContractLine[0].ItemName).to.eql('140000-001');",
+                  "  pm.expect(body.ContractLine[0].ItemNameTxt).to.eql('140000-001');",
+                  "  pm.expect(body.ContractLine[0].ContractAllLineDesFlexVA.length).to.eql(1);",
+                  "  pm.expect(body.ContractLine[0].ContractAllLineDesFlexVA[0].shippingInstructions).to.include('WAWF required');",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
