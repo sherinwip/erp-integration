@@ -87,6 +87,7 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
   const [error, setError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [savedOk, setSavedOk] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // ── load targets whenever client changes ──────────────────────────────────
   useEffect(() => {
@@ -130,6 +131,14 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
     if (stepType === STEP_TYPE.TRANSFORM_POST && method === "GET") setMethod("POST");
   }, [stepType]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // close full-screen preview on Escape
+  useEffect(() => {
+    if (!showPreview) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setShowPreview(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showPreview]);
+
   // ── rule handlers ─────────────────────────────────────────────────────────
   const handleRuleChange = (index, field, value) =>
     setRules((c) => c.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
@@ -172,6 +181,22 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
   [rules, sourceData]);
 
   const previewJson = useMemo(() => JSON.stringify(previewObject, null, 2), [previewObject]);
+
+  const storedPreview = useMemo(
+    () =>
+      extractMappings.length
+        ? JSON.stringify(
+            Object.fromEntries(
+              extractMappings
+                .filter((m) => m.target)
+                .map((m) => [m.target, `<from: ${m.source || "response"}>` ]),
+            ),
+            null,
+            2,
+          )
+        : "// No extraction rules defined.\n// Add rules in Response Extraction above.",
+    [extractMappings],
+  );
 
   // ── save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -334,6 +359,12 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
             Change Type
           </button>
         )}
+        <button
+          onClick={() => setShowPreview(true)}
+          className="flex items-center gap-1.5 rounded-2xl border border-outline-variant bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-surface-container-high">
+          <span className="material-symbols-outlined text-sm">preview</span>
+          Preview
+        </button>
         <button onClick={onBack}
           className="rounded-2xl border border-outline-variant bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-surface-container-high">
           Back
@@ -483,40 +514,95 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
     </div>
   );
 
+  // ── full-screen preview overlay ───────────────────────────────────────────
+  const previewOverlay = showPreview ? (
+    <div className="fixed inset-0 z-[200] flex flex-col bg-slate-950">
+      {/* Overlay header */}
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-slate-400">preview</span>
+          <div>
+            <p className="text-sm font-semibold text-slate-100">
+              {stepName || "Untitled Step"} — Full Preview
+            </p>
+            <p className="text-xs text-slate-500">
+              Press{" "}
+              <kbd className="rounded border border-slate-700 px-1 font-mono text-slate-400">Esc</kbd>
+              {" "}or click × to close
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowPreview(false)}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 text-slate-400 transition hover:border-slate-500 hover:bg-slate-800 hover:text-slate-100">
+          <span className="material-symbols-outlined text-base">close</span>
+        </button>
+      </div>
+      {/* Overlay body: two columns */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Left: Source JSON — editable */}
+        <div className="flex flex-1 flex-col overflow-hidden border-r border-slate-800">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-5 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Source JSON</p>
+            <span className="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-semibold text-slate-300">editable</span>
+          </div>
+          <textarea
+            value={sourceJson}
+            onChange={(e) => handleSourceJsonChange(e.target.value)}
+            className="flex-1 resize-none bg-slate-950 px-6 py-5 font-mono text-sm leading-relaxed text-slate-100 outline-none focus:bg-[#0d1117]"
+            spellCheck={false}
+          />
+          {jsonError && (
+            <div className="shrink-0 border-t border-slate-800 bg-amber-900/30 px-5 py-2 text-xs text-amber-400">
+              {jsonError}
+            </div>
+          )}
+        </div>
+        {/* Right: Output */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center border-b border-slate-800 bg-slate-900 px-5 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {isGetStore ? "Stored Variables" : "Output Preview"}
+            </p>
+          </div>
+          <pre className="flex-1 overflow-auto bg-slate-950 px-6 py-5 font-mono text-sm leading-relaxed text-slate-100">
+            {isGetStore ? storedPreview : previewJson}
+          </pre>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   // ── GET & Store layout ────────────────────────────────────────────────────
   if (isGetStore) {
-    const storedPreview = extractMappings.length
-      ? JSON.stringify(
-          Object.fromEntries(
-            extractMappings.filter((m) => m.target).map((m) => [m.target, `<from: ${m.source || "response"}>`]),
-          ), null, 2,
-        )
-      : "// No extraction rules defined.\n// Add rules in Response Extraction above.";
-
     return (
-      <div className="flex w-full flex-col gap-4">
-        {headerBar}
-        <div className="grid w-full gap-4 xl:grid-cols-2">
-          {targetConfigPanel}
-          {/* Stored variables preview */}
-          <div className="flex flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
-            <div className="border-b border-outline-variant bg-surface-container-low px-5 py-4">
-              <p className="text-sm font-semibold text-slate-600">Stored Variables Preview</p>
-              <p className="mt-0.5 text-xs text-slate-400">Variables available to downstream steps after this GET runs.</p>
-            </div>
-            <div className="flex-1 overflow-auto bg-slate-950 p-5">
-              <pre className="min-h-40 overflow-auto rounded-3xl border border-slate-800 bg-slate-950 p-4 font-code-md text-[12px] text-slate-100">
-                {storedPreview}
-              </pre>
+      <>
+        <div className="flex w-full flex-col gap-4">
+          {headerBar}
+          <div className="grid w-full gap-4 xl:grid-cols-2">
+            {targetConfigPanel}
+            {/* Stored variables preview */}
+            <div className="flex flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
+              <div className="border-b border-outline-variant bg-surface-container-low px-5 py-4">
+                <p className="text-sm font-semibold text-slate-600">Stored Variables Preview</p>
+                <p className="mt-0.5 text-xs text-slate-400">Variables available to downstream steps after this GET runs.</p>
+              </div>
+              <div className="flex-1 overflow-auto bg-slate-950 p-5">
+                <pre className="min-h-40 overflow-auto rounded-3xl border border-slate-800 bg-slate-950 p-4 font-code-md text-[12px] text-slate-100">
+                  {storedPreview}
+                </pre>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+        {previewOverlay}
+      </>
     );
   }
 
   // ── Transformation & POST layout ──────────────────────────────────────────
   return (
+    <>
     <div className="flex w-full flex-col gap-4">
       {headerBar}
       <div className="grid w-full min-w-0 gap-4 xl:grid-cols-[minmax(0,0.65fr)_minmax(0,0.35fr)]">
@@ -604,6 +690,8 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
         </div>
       </div>
     </div>
+    {previewOverlay}
+    </>
   );
 }
 
