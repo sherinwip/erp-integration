@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        transform_payload() previously copied every mapped value through unchanged,
+        ignoring field_mapping.transform_type/transform_params entirely (e.g. StartDate
+        stayed "yyyy-MM-dd" even when a row asked for date_format -> "dd-MM-yyyy").
+        This helper applies the transform; transform_payload() (changeset 012) is
+        updated to call it at every value-resolution site instead of using the raw value.
+    -->
+    <changeSet id="011-create-apply-field-transform-function" author="erp-integration">
+        <sql splitStatements="false"><![CDATA[
+CREATE OR REPLACE FUNCTION apply_field_transform(p_value JSONB, p_transform_type TEXT, p_transform_params TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    params JSONB;
+    input_format TEXT;
+    output_format TEXT;
+    parsed_date DATE;
+    text_val TEXT;
+BEGIN
+    IF p_value IS NULL OR jsonb_typeof(p_value) = 'null' THEN
+        RETURN p_value;
+    END IF;
+
+    IF p_transform_type IS NULL OR p_transform_type = 'none' THEN
+        RETURN p_value;
+    END IF;
+
+    IF p_transform_type = 'uppercase' THEN
+        RETURN to_jsonb(upper(p_value #>> '{}'));
+    END IF;
+
+    IF p_transform_type = 'lowercase' THEN
+        RETURN to_jsonb(lower(p_value #>> '{}'));
+    END IF;
+
+    IF p_transform_type = 'date_format' THEN
+        text_val := p_value #>> '{}';
+        IF text_val IS NULL OR text_val = '' THEN
+            RETURN p_value;
+        END IF;
+
+        params := NULLIF(p_transform_params, '')::JSONB;
+        input_format := COALESCE(params ->> 'inputFormat', 'YYYY-MM-DD');
+        output_format := COALESCE(params ->> 'outputFormat', 'YYYY-MM-DD');
+
+        BEGIN
+            parsed_date := to_date(text_val, input_format);
+        EXCEPTION WHEN OTHERS THEN
+            RETURN p_value;
+        END;
+
+        RETURN to_jsonb(to_char(parsed_date, output_format));
+    END IF;
+
+    -- 'lookup' and 'calculate' are not implemented locally (no lookup-table storage,
+    -- no expression evaluator) -- fall through to the raw value rather than erroring.
+    RETURN p_value;
+END;
+$$;
+        ]]></sql>
+        <rollback>
+            <sql>DROP FUNCTION IF EXISTS apply_field_transform(JSONB, TEXT, TEXT);</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

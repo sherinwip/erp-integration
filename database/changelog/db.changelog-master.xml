@@ -15,5 +15,7 @@
     <include file="changes/008-alter-field-mapping-add-array-support.xml" relativeToChangelogFile="true"/>
     <include file="changes/009-seed-oracle-contract-pipeline.xml" relativeToChangelogFile="true"/>
     <include file="changes/010-create-transform-payload-function.xml" relativeToChangelogFile="true"/>
+    <include file="changes/011-create-apply-field-transform-function.xml" relativeToChangelogFile="true"/>
+    <include file="changes/012-update-transform-payload-apply-transforms.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

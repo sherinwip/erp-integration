@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Re-creates transform_payload() (originally changeset 010) so every resolved
+        value passes through apply_field_transform() (changeset 011) before being
+        written, applying each row's transform_type/transform_params instead of
+        copying the raw source value unchanged.
+    -->
+    <changeSet id="012-update-transform-payload-apply-transforms" author="erp-integration">
+        <sql splitStatements="false"><![CDATA[
+CREATE OR REPLACE FUNCTION transform_payload(p_step_pk BIGINT, p_source JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result JSONB := '{}'::JSONB;
+    m RECORD;
+    v JSONB;
+    line_items JSONB;
+    item JSONB;
+    built_item JSONB;
+    idx INT;
+    nested_group RECORD;
+    flex_group RECORD;
+    nested_val JSONB;
+    child_array TEXT;
+    target_array_name TEXT;
+BEGIN
+    -- Pass 1: flat scalar fields (array_target_path = '')
+    FOR m IN
+        SELECT * FROM field_mapping
+        WHERE step_pk = p_step_pk AND array_target_path = ''
+        ORDER BY sort_order
+    LOOP
+        IF m.source_path LIKE '\_\_literal.%' ESCAPE '\' THEN
+            v := to_jsonb(substring(m.source_path FROM 11));
+        ELSE
+            v := p_source #> string_to_array(m.source_path, '.');
+        END IF;
+
+        IF v IS NULL THEN
+            IF m.default_value IS NOT NULL THEN
+                v := to_jsonb(m.default_value);
+            ELSE
+                v := 'null'::JSONB;
+            END IF;
+        ELSE
+            v := apply_field_transform(v, m.transform_type, m.transform_params);
+        END IF;
+
+        result := jsonb_set(result, ARRAY[m.target_path], v, true);
+    END LOOP;
+
+    -- Pass 2: singleton-array fields whose array_source_path is a top-level source key.
+    -- Skips nested ones like "lines[].lineAttributes"; those are handled inside pass 3.
+    FOR nested_group IN
+        SELECT DISTINCT array_source_path, array_target_path
+        FROM field_mapping
+        WHERE step_pk = p_step_pk
+          AND array_target_path <> ''
+          AND array_target_path NOT LIKE '%.%'
+          AND is_singleton_array = true
+    LOOP
+        built_item := '{}'::JSONB;
+        FOR m IN
+            SELECT * FROM field_mapping
+            WHERE step_pk = p_step_pk
+              AND array_target_path = nested_group.array_target_path
+            ORDER BY sort_order
+        LOOP
+            IF m.source_path LIKE '\_\_literal.%' ESCAPE '\' THEN
+                v := to_jsonb(substring(m.source_path FROM 11));
+            ELSE
+                v := (p_source #> string_to_array(nested_group.array_source_path, '.'))
+                     #> string_to_array(m.source_path, '.');
+            END IF;
+
+            IF v IS NULL THEN
+                IF m.default_value IS NOT NULL THEN
+                    v := to_jsonb(m.default_value);
+                ELSE
+                    v := 'null'::JSONB;
+                END IF;
+            ELSE
+                v := apply_field_transform(v, m.transform_type, m.transform_params);
+            END IF;
+
+            built_item := jsonb_set(built_item, ARRAY[m.target_path], v, true);
+        END LOOP;
+
+        result := jsonb_set(result, ARRAY[nested_group.array_target_path], jsonb_build_array(built_item), true);
+    END LOOP;
+
+    -- Pass 3: repeating arrays whose array_source_path is a top-level source key
+    -- (real array, one target element per source element).
+    FOR nested_group IN
+        SELECT DISTINCT array_source_path, array_target_path
+        FROM field_mapping
+        WHERE step_pk = p_step_pk
+          AND array_target_path <> ''
+          AND array_target_path NOT LIKE '%.%'
+          AND is_singleton_array = false
+    LOOP
+        line_items := p_source #> string_to_array(nested_group.array_source_path, '.');
+        v := '[]'::JSONB;
+
+        IF line_items IS NOT NULL AND jsonb_typeof(line_items) = 'array' THEN
+            FOR idx IN 0 .. jsonb_array_length(line_items) - 1 LOOP
+                item := line_items -> idx;
+                built_item := '{}'::JSONB;
+
+                FOR m IN
+                    SELECT * FROM field_mapping
+                    WHERE step_pk = p_step_pk
+                      AND array_target_path = nested_group.array_target_path
+                    ORDER BY sort_order
+                LOOP
+                    IF m.source_path LIKE '\_\_literal.%' ESCAPE '\' THEN
+                        nested_val := to_jsonb(substring(m.source_path FROM 11));
+                    ELSE
+                        nested_val := item #> string_to_array(m.source_path, '.');
+                    END IF;
+
+                    IF nested_val IS NULL THEN
+                        IF m.default_value IS NOT NULL THEN
+                            nested_val := to_jsonb(m.default_value);
+                        ELSE
+                            nested_val := 'null'::JSONB;
+                        END IF;
+                    ELSE
+                        nested_val := apply_field_transform(nested_val, m.transform_type, m.transform_params);
+                    END IF;
+
+                    built_item := jsonb_set(built_item, ARRAY[m.target_path], nested_val, true);
+                END LOOP;
+
+                -- Pass 4 (nested singleton block within this repeating item), e.g.
+                -- "ContractLine.ContractAllLineDesFlexVA" built from this item's own
+                -- "lineAttributes" sub-object: group by any array_target_path that
+                -- starts with "<this array>." followed by a child array name.
+                FOR flex_group IN
+                    SELECT DISTINCT array_source_path, array_target_path
+                    FROM field_mapping fm2
+                    WHERE fm2.step_pk = p_step_pk
+                      AND fm2.array_target_path LIKE (nested_group.array_target_path || '.%')
+                LOOP
+                    -- array_source_path looks like "lines[].lineAttributes"; take the
+                    -- part after the array-item marker, relative to the current item.
+                    child_array := substring(flex_group.array_source_path FROM '\[\]\.(.*)$');
+                    nested_val := item -> child_array;
+                    target_array_name := substring(flex_group.array_target_path FROM '\.([^.]+)$');
+
+                    built_item := jsonb_set(
+                        built_item,
+                        ARRAY[target_array_name],
+                        jsonb_build_array(
+                            (SELECT jsonb_object_agg(
+                                        im.target_path,
+                                        CASE
+                                            WHEN im.source_path LIKE '\_\_literal.%' ESCAPE '\'
+                                                THEN to_jsonb(substring(im.source_path FROM 11))
+                                            ELSE
+                                                CASE
+                                                    WHEN (nested_val #> string_to_array(im.source_path, '.')) IS NULL THEN
+                                                        CASE WHEN im.default_value IS NOT NULL
+                                                             THEN to_jsonb(im.default_value)
+                                                             ELSE 'null'::JSONB END
+                                                    ELSE
+                                                        apply_field_transform(
+                                                            nested_val #> string_to_array(im.source_path, '.'),
+                                                            im.transform_type,
+                                                            im.transform_params
+                                                        )
+                                                END
+                                        END
+                                        ORDER BY im.sort_order
+                                    )
+                             FROM field_mapping im
+                             WHERE im.step_pk = p_step_pk
+                               AND im.array_target_path = flex_group.array_target_path)
+                        ),
+                        true
+                    );
+                END LOOP;
+
+                v := v || jsonb_build_array(built_item);
+            END LOOP;
+        END IF;
+
+        result := jsonb_set(result, ARRAY[nested_group.array_target_path], v, true);
+    END LOOP;
+
+    RETURN result;
+END;
+$$;
+        ]]></sql>
+        <rollback>
+            <comment>Rollback restores changeset 010's original (no-transform) function body; re-run changeset 010's SQL manually if needed.</comment>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
