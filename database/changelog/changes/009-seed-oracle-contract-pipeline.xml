@@ -1,0 +1,652 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Seeds a real PAT-01 pipeline for the "Contract Creation Steps" Oracle Fusion
+        contract-create endpoint (documentation/sample-payloads/oracle-fusion-contract-output.json).
+        Assumed inbound Salesforce payload: documentation/sample-payloads/salesforce-contract-award-input.json.
+
+        Demonstrates the array_source_path / array_target_path columns added in
+        changeset 008: ContractHeaderFlexfieldVA and ContractParty are singleton/1-item
+        arrays; ContractLine (with nested ContractAllLineDesFlexVA per line) is a true
+        repeating array driven by source "lines[]".
+    -->
+
+    <changeSet id="009-seed-target-oracle-contracts" author="erp-integration" context="demo">
+        <insert tableName="target">
+            <column name="target_id" value="AV-oracle-fusion-contracts"/>
+            <column name="client_id" value="AV"/>
+            <column name="target_name" value="OracleFusionContracts"/>
+            <column name="base_url" value="https://ewnj-test.fa.us8.oraclecloud.com"/>
+            <column name="auth_type" value="oauth2"/>
+            <column name="credential_ref" value="oracle-ewnj-test-creds"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="009-seed-pipeline-oracle-contract" author="erp-integration" context="demo">
+        <insert tableName="pipeline">
+            <column name="pipeline_id" value="award-to-oracle-contract-full-v1"/>
+            <column name="client_id" value="AV"/>
+            <column name="source_system" value="salesforce"/>
+            <column name="object_type" value="ContractAward"/>
+            <column name="event_type" value="createFull"/>
+            <column name="pattern_id" value="PAT-01"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="009-seed-step-oracle-contract" author="erp-integration" context="demo">
+        <insert tableName="step">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="client_id" value="AV"/>
+            <column name="target_id" value="AV-oracle-fusion-contracts"/>
+            <column name="step_name" value="create-oracle-contract-full"/>
+            <column name="method" value="POST"/>
+            <column name="path" value="/fscmRestApi/resources/11.13.18.05/contracts"/>
+        </insert>
+        <sql>SELECT setval(pg_get_serial_sequence('step','step_pk'), (SELECT MAX(step_pk) FROM step));</sql>
+    </changeSet>
+
+    <changeSet id="009-seed-pipeline-step-oracle-contract" author="erp-integration" context="demo">
+        <insert tableName="pipeline_step">
+            <column name="pipeline_id" value="award-to-oracle-contract-full-v1"/>
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="seq" valueNumeric="1"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="009-seed-field-mapping-header-scalars" author="erp-integration" context="demo">
+        <comment>Flat header fields: source root -> Oracle contract root. array_source_path/array_target_path left at default ''.</comment>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="orgId"/>
+            <column name="target_path" value="OrgId"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="contractTypeId"/>
+            <column name="target_path" value="ContractTypeId"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="legalEntityName"/>
+            <column name="target_path" value="LegalEntityName"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="contractTypeName"/>
+            <column name="target_path" value="ContractTypeName"/>
+            <column name="sort_order" valueNumeric="4"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="contractNumber"/>
+            <column name="target_path" value="ContractNumber"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="5"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="startDate"/>
+            <column name="target_path" value="StartDate"/>
+            <column name="transform_type" value="date_format"/>
+            <column name="transform_params" value="{&quot;inputFormat&quot;:&quot;yyyy-MM-dd&quot;,&quot;outputFormat&quot;:&quot;yyyy-MM-dd&quot;}"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="6"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="currencyCode"/>
+            <column name="target_path" value="CurrencyCode"/>
+            <column name="default_value" value="USD"/>
+            <column name="sort_order" valueNumeric="7"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="invOrgName"/>
+            <column name="target_path" value="InvOrgName"/>
+            <column name="sort_order" valueNumeric="8"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="invOrganizationId"/>
+            <column name="target_path" value="InvOrganizationId"/>
+            <column name="sort_order" valueNumeric="9"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="contributionPercent"/>
+            <column name="target_path" value="ContributionPercent"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="customerPONumber"/>
+            <column name="target_path" value="CustomerPONumber"/>
+            <column name="sort_order" valueNumeric="11"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="owningOrgName"/>
+            <column name="target_path" value="OwningOrgName"/>
+            <column name="sort_order" valueNumeric="12"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="netInvoiceFlag"/>
+            <column name="target_path" value="NetInvoiceFlag"/>
+            <column name="sort_order" valueNumeric="13"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="buyOrSell"/>
+            <column name="target_path" value="BuyOrSell"/>
+            <column name="sort_order" valueNumeric="14"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="009-seed-field-mapping-header-flexfield" author="erp-integration" context="demo">
+        <comment>
+            headerAttributes is a single source object, not an array, but Oracle expects
+            exactly one ContractHeaderFlexfieldVA[] entry -- is_singleton_array=true tells
+            the engine to wrap the one resolved object into a 1-element target array
+            instead of erroring for a non-array source.
+        </comment>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="__literal.Sell Type Contract"/>
+            <column name="target_path" value="__FLEX_Context"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="__literal.Sell Type Contract"/>
+            <column name="target_path" value="__FLEX_Context_DisplayValue"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="sfQuoteNumber"/>
+            <column name="target_path" value="sfQuoteNumber"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="sfOpportunityId"/>
+            <column name="target_path" value="sfOpportunityId"/>
+            <column name="sort_order" valueNumeric="4"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="marketSegment"/>
+            <column name="target_path" value="marketSegment"/>
+            <column name="sort_order" valueNumeric="5"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="originalContractualDate"/>
+            <column name="target_path" value="originalContractualDate"/>
+            <column name="transform_type" value="date_format"/>
+            <column name="sort_order" valueNumeric="6"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="masterContractNumber"/>
+            <column name="target_path" value="masterContractNumber"/>
+            <column name="sort_order" valueNumeric="7"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="contractType"/>
+            <column name="target_path" value="contractType"/>
+            <column name="sort_order" valueNumeric="8"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="contractClass"/>
+            <column name="target_path" value="contractClass"/>
+            <column name="sort_order" valueNumeric="9"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="letterOfCredit"/>
+            <column name="target_path" value="letterOfCredit"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="creditOrPerformanceGuarantee"/>
+            <column name="target_path" value="creditOrPerformanceGuarantee"/>
+            <column name="sort_order" valueNumeric="11"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="customerAcceptanceCriteria"/>
+            <column name="target_path" value="customerAcceptanceCriteria"/>
+            <column name="sort_order" valueNumeric="12"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="dpasRating"/>
+            <column name="target_path" value="dpasRating"/>
+            <column name="sort_order" valueNumeric="13"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="uidRequired"/>
+            <column name="target_path" value="uidRequired"/>
+            <column name="sort_order" valueNumeric="14"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="casCompliant"/>
+            <column name="target_path" value="casCompliant"/>
+            <column name="sort_order" valueNumeric="15"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="cageCode"/>
+            <column name="target_path" value="cageCode"/>
+            <column name="sort_order" valueNumeric="16"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="naicsCode"/>
+            <column name="target_path" value="naicsCode"/>
+            <column name="sort_order" valueNumeric="17"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="contractAwardBasis"/>
+            <column name="target_path" value="contractAwardBasis"/>
+            <column name="sort_order" valueNumeric="18"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="certifiedCostOrPricingData"/>
+            <column name="target_path" value="certifiedCostOrPricingData"/>
+            <column name="sort_order" valueNumeric="19"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="dd254Issued"/>
+            <column name="target_path" value="dd254Issued"/>
+            <column name="sort_order" valueNumeric="20"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="subcontractingPlan"/>
+            <column name="target_path" value="subcontractingPlan"/>
+            <column name="sort_order" valueNumeric="21"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="ContractHeaderFlexfieldVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="convertedContract"/>
+            <column name="target_path" value="convertedContract"/>
+            <column name="sort_order" valueNumeric="22"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="009-seed-field-mapping-party" author="erp-integration" context="demo">
+        <comment>parties is a real repeating source array -> one ContractParty[] entry per item.</comment>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="parties"/>
+            <column name="array_target_path" value="ContractParty"/>
+            <column name="source_path" value="partyRoleCode"/>
+            <column name="target_path" value="PartyRoleCode"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="parties"/>
+            <column name="array_target_path" value="ContractParty"/>
+            <column name="source_path" value="role"/>
+            <column name="target_path" value="Role"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="parties"/>
+            <column name="array_target_path" value="ContractParty"/>
+            <column name="source_path" value="partyName"/>
+            <column name="target_path" value="PartyName"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="009-seed-field-mapping-line" author="erp-integration" context="demo">
+        <comment>lines is a real repeating source array -> one ContractLine[] entry per item.</comment>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="lineNumber"/>
+            <column name="target_path" value="LineNumber"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="lineTypeId"/>
+            <column name="target_path" value="LineTypeId"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="lineTypeName"/>
+            <column name="target_path" value="LineTypeName"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="itemName"/>
+            <column name="target_path" value="ItemName"/>
+            <column name="is_required" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="4"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="itemName"/>
+            <column name="target_path" value="ItemNameTxt"/>
+            <column name="sort_order" valueNumeric="5"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="itemDescription"/>
+            <column name="target_path" value="ItemDescription"/>
+            <column name="sort_order" valueNumeric="6"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="startDate"/>
+            <column name="target_path" value="StartDate"/>
+            <column name="transform_type" value="date_format"/>
+            <column name="sort_order" valueNumeric="7"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="endDate"/>
+            <column name="target_path" value="EndDate"/>
+            <column name="transform_type" value="date_format"/>
+            <column name="sort_order" valueNumeric="8"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="uomCode"/>
+            <column name="target_path" value="UOMCode"/>
+            <column name="sort_order" valueNumeric="9"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="unitOfMeasure"/>
+            <column name="target_path" value="UnitOfMeasure"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="itemQuantity"/>
+            <column name="target_path" value="ItemQuantity"/>
+            <column name="sort_order" valueNumeric="11"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="unitPrice"/>
+            <column name="target_path" value="UnitPrice"/>
+            <column name="sort_order" valueNumeric="12"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines"/>
+            <column name="array_target_path" value="ContractLine"/>
+            <column name="source_path" value="lineAmount"/>
+            <column name="target_path" value="LineAmount"/>
+            <column name="sort_order" valueNumeric="13"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="009-seed-field-mapping-line-flexfield" author="erp-integration" context="demo">
+        <comment>
+            lines[].lineAttributes is a per-line singleton object -> exactly one
+            ContractAllLineDesFlexVA[] entry nested inside each ContractLine[] entry.
+            array_source_path is relative to the enclosing "lines" item.
+        </comment>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="__literal.Sell Type Line Attributes"/>
+            <column name="target_path" value="__FLEX_Context"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="__literal.Sell Type Line Attributes"/>
+            <column name="target_path" value="__FLEX_Context_DisplayValue"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="contractLineDueDate"/>
+            <column name="target_path" value="contractLineDueDate"/>
+            <column name="transform_type" value="date_format"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="deliveryDueDate"/>
+            <column name="target_path" value="deliveryDueDate"/>
+            <column name="transform_type" value="date_format"/>
+            <column name="sort_order" valueNumeric="4"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="glDivision"/>
+            <column name="target_path" value="gldivision"/>
+            <column name="sort_order" valueNumeric="5"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="glRevenueAccount"/>
+            <column name="target_path" value="glRevenueAccount"/>
+            <column name="sort_order" valueNumeric="6"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="glProductLine"/>
+            <column name="target_path" value="glProductLine"/>
+            <column name="sort_order" valueNumeric="7"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="nonProjectRelatedContractLine"/>
+            <column name="target_path" value="nonProjectRelatedContractLine"/>
+            <column name="sort_order" valueNumeric="8"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="avalaraTaxCode"/>
+            <column name="target_path" value="avalaraTaxCode"/>
+            <column name="sort_order" valueNumeric="9"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="fob"/>
+            <column name="target_path" value="fob"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="endCountry"/>
+            <column name="target_path" value="endCountry"/>
+            <column name="sort_order" valueNumeric="11"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="freightTerms"/>
+            <column name="target_path" value="freightTerms"/>
+            <column name="sort_order" valueNumeric="12"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="shippingInstructions"/>
+            <column name="target_path" value="shippingInstructions"/>
+            <column name="sort_order" valueNumeric="13"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="partialShipmentFlag"/>
+            <column name="target_path" value="partialShipmentFlag"/>
+            <column name="sort_order" valueNumeric="14"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="lines[].lineAttributes"/>
+            <column name="array_target_path" value="ContractLine.ContractAllLineDesFlexVA"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="customerAcceptanceInspection"/>
+            <column name="target_path" value="customerAcceptanceInspection"/>
+            <column name="sort_order" valueNumeric="15"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

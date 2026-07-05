@@ -556,7 +556,183 @@
       ]
     },
     {
-      "name": "07 - Cleanup (Postman Test Data)",
+      "name": "07 - Entity Testing: Full Oracle Contract Pipeline (Contract Creation Steps.docx)",
+      "item": [
+        {
+          "name": "Resolve Full-Contract Pipeline by Routing Key (event_type=createFull)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/pipeline?client_id=eq.AV&source_system=eq.salesforce&object_type=eq.ContractAward&event_type=eq.createFull&status=eq.active"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('resolves to award-to-oracle-contract-full-v1', () => pm.expect(body[0].pipeline_id).to.eql('award-to-oracle-contract-full-v1'));",
+                  "pm.test('pattern is PAT-01', () => pm.expect(body[0].pattern_id).to.eql('PAT-01'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get create-oracle-contract-full Step + Target",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/step?step_name=eq.create-oracle-contract-full&select=step_pk,method,path,target:target_id(target_name,base_url)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('POST to Oracle contracts endpoint', () => {",
+                  "  pm.expect(body[0].method).to.eql('POST');",
+                  "  pm.expect(body[0].path).to.eql('/fscmRestApi/resources/11.13.18.05/contracts');",
+                  "  pm.expect(body[0].target.target_name).to.eql('OracleFusionContracts');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Header Scalar Mappings (flat, array_target_path empty)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.3&array_target_path=eq.&order=sort_order.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('14 header scalar rows', () => pm.expect(body.length).to.eql(14));",
+                  "pm.test('OrgId maps first', () => pm.expect(body[0].target_path).to.eql('OrgId'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Header Flexfield Mappings (singleton array -> ContractHeaderFlexfieldVA[0])",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.3&array_target_path=eq.ContractHeaderFlexfieldVA&order=sort_order.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('22 header flexfield rows', () => pm.expect(body.length).to.eql(22));",
+                  "pm.test('all rows are singleton array', () => body.forEach(r => pm.expect(r.is_singleton_array).to.eql(true)));",
+                  "pm.test('array_source_path is headerAttributes', () => body.forEach(r => pm.expect(r.array_source_path).to.eql('headerAttributes')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Party Mappings (repeating array -> ContractParty[])",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.3&array_target_path=eq.ContractParty&order=sort_order.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('3 party mapping rows', () => pm.expect(body.length).to.eql(3));",
+                  "pm.test('not singleton (true repeating array)', () => body.forEach(r => pm.expect(r.is_singleton_array).to.eql(false)));",
+                  "pm.test('array_source_path is parties', () => body.forEach(r => pm.expect(r.array_source_path).to.eql('parties')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Line Mappings (repeating array -> ContractLine[])",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.3&array_target_path=eq.ContractLine&order=sort_order.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('13 line mapping rows', () => pm.expect(body.length).to.eql(13));",
+                  "pm.test('LineNumber maps first', () => pm.expect(body[0].target_path).to.eql('LineNumber'));",
+                  "pm.test('ItemName appears twice (ItemName + ItemNameTxt)', () => {",
+                  "  const itemNameRows = body.filter(r => r.source_path === 'itemName');",
+                  "  pm.expect(itemNameRows.length).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Line Flexfield Mappings (nested singleton -> ContractLine[].ContractAllLineDesFlexVA[0])",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.3&array_target_path=eq.ContractLine.ContractAllLineDesFlexVA&order=sort_order.asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('15 line flexfield rows', () => pm.expect(body.length).to.eql(15));",
+                  "pm.test('array_source_path is relative to line item', () => body.forEach(r => pm.expect(r.array_source_path).to.eql('lines[].lineAttributes')));",
+                  "pm.test('shippingInstructions present', () => {",
+                  "  const row = body.find(r => r.target_path === 'shippingInstructions');",
+                  "  pm.expect(row).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Full Mapping Set Count for step_pk=3 (sanity total)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/field_mapping?step_pk=eq.3&select=mapping_pk"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('67 total mapping rows (14+22+3+13+15)', () => pm.expect(pm.response.json().length).to.eql(67));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 - Cleanup (Postman Test Data)",
       "item": [
         {
           "name": "Delete pipeline_step",

@@ -1,0 +1,96 @@
+{
+  "OrgId": 300000019976011,
+  "ContractTypeId": 300000020150131,
+  "LegalEntityName": "AeroVironment, Inc.",
+  "ContractTypeName": "Purchase Order",
+  "ContractNumber": "W58RGZ26F0238_X1",
+  "StartDate": "2026-03-20",
+  "CurrencyCode": "USD",
+  "InvOrgName": "IMO-Item Master Organization",
+  "InvOrganizationId": 300000020021543,
+  "Cognomen": null,
+  "ShortDescription": null,
+  "ContributionPercent": 1,
+  "CustomerPONumber": "W58RGZ26F0238",
+  "OwningOrgName": "SUAS",
+  "NetInvoiceFlag": true,
+  "BuyOrSell": "S",
+  "ContractHeaderFlexfieldVA": [
+    {
+      "__FLEX_Context": "Sell Type Contract",
+      "__FLEX_Context_DisplayValue": "Sell Type Contract",
+      "sfQuoteNumber": "Q-02120",
+      "sfOpportunityId": "OPP-4057",
+      "marketSegment": "US Army",
+      "originalContractualDate": "2026-07-23",
+      "masterContractNumber": "W58RGZ-26-G-0005",
+      "primeContract": null,
+      "contractType": "FFP",
+      "contractClass": "USG-DOD",
+      "letterOfCredit": "No",
+      "creditOrPerformanceGuarantee": "No",
+      "salesAgent": null,
+      "customerAcceptanceCriteria": "Yes",
+      "dpasRating": "DO_A1",
+      "uidRequired": "No",
+      "casCompliant": "Exempt",
+      "cageCode": "60107",
+      "naicsCode": "336411",
+      "pscCode": null,
+      "contractAwardBasis": "FAR12",
+      "competitionType": null,
+      "solicitationProcedures": null,
+      "certifiedCostOrPricingData": "No",
+      "dd254Issued": "No",
+      "subcontractingPlan": "No",
+      "convertedContract": "N"
+    }
+  ],
+  "ContractParty": [
+    {
+      "PartyRoleCode": "CUSTOMER",
+      "Role": "Customer",
+      "PartyName": "US ARMY CONTRACTING COMMAND"
+    }
+  ],
+  "ContractLine": [
+    {
+      "LineNumber": "0001",
+      "LineTypeId": 300000000324971,
+      "LineTypeName": "Item, project",
+      "ItemName": "140000-001",
+      "ItemNameTxt": "140000-001",
+      "ItemDescription": "SYSTEM, TOP, M1/2/5 NATO, HD40-LVV+MOD INT, HD40-LVV+RELAY INT, 2AV, VIGILANT SPIRIT, P550",
+      "StartDate": "2026-03-20",
+      "EndDate": "2026-06-24",
+      "UOMCode": "EA",
+      "UnitOfMeasure": "Each",
+      "ItemQuantity": 1,
+      "UnitPrice": 0,
+      "LineAmount": 0,
+      "Comments": null,
+      "ContractAllLineDesFlexVA": [
+        {
+          "__FLEX_Context": "Sell Type Line Attributes",
+          "__FLEX_Context_DisplayValue": "Sell Type Line Attributes",
+          "contractLineDueDate": "2026-06-24",
+          "deliveryDueDate": "2026-04-10",
+          "gldivision": "100",
+          "glRevenueAccount": "40000",
+          "glProductLine": "1054",
+          "nonProjectRelatedContractLine": "No",
+          "avalaraTaxCode": "|Exempt|",
+          "straightTimeRevenueSpendFactor": null,
+          "fob": "FOB ORIGIN",
+          "incotermsNamePlace": null,
+          "endCountry": "US",
+          "fmsCaseCode": null,
+          "freightTerms": "NA",
+          "shippingInstructions": "Notify Maj Townsend one week prior. Army requests we ship-in-place, see language on page 2. WAWF required.",
+          "partialShipmentFlag": "Yes",
+          "customerAcceptanceInspection": "WAWF - Origin"
+        }
+      ]
+    }
+  ]
+}

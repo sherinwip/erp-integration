@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Supports mapping template rows that describe a repeating target array built by
+        iterating a repeating source array (e.g. one ContractLine[] entry per source
+        lines[] item; one ContractHeaderFlexfieldVA[]/ContractParty[] entry per source
+        headerAttributes/parties[] item). A row with array_source_path/array_target_path
+        set is a *template*: source_path and target_path are then relative to one item
+        of that array, not absolute paths from the payload root. Rows with both columns
+        null behave exactly as before (flat scalar mapping).
+    -->
+    <changeSet id="008-add-field-mapping-array-columns" author="erp-integration">
+        <addColumn tableName="field_mapping">
+            <column name="array_source_path" type="VARCHAR(200)" defaultValue="">
+                <constraints nullable="false"/>
+            </column>
+            <column name="array_target_path" type="VARCHAR(200)" defaultValue="">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_singleton_array" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <sql>
+            COMMENT ON COLUMN field_mapping.array_source_path IS
+                'Source array to iterate, e.g. "lines" or "headerAttributes" (object treated as 1-item array). Empty string = scalar mapping, not part of a repeating block.';
+            COMMENT ON COLUMN field_mapping.array_target_path IS
+                'Target array this row belongs to, e.g. "ContractLine" or "ContractHeaderFlexfieldVA". Empty string = scalar mapping. Must be set together with array_source_path.';
+            COMMENT ON COLUMN field_mapping.is_singleton_array IS
+                'True when the source is a single object (not an array) that should still produce exactly one target array element, e.g. Oracle descriptive flexfield contexts (headerAttributes -&gt; ContractHeaderFlexfieldVA[0]).';
+        </sql>
+
+        <rollback>
+            <dropColumn tableName="field_mapping" columnName="array_source_path"/>
+            <dropColumn tableName="field_mapping" columnName="array_target_path"/>
+            <dropColumn tableName="field_mapping" columnName="is_singleton_array"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="008b-field-mapping-array-unique-constraint" author="erp-integration">
+        <comment>
+            Original uq_field_mapping_step_target (step_pk, target_path) is too narrow once
+            arrays are relative-path: "ItemName" inside ContractLine and a same-named field
+            inside a different array would collide. Replace with a constraint keyed on the
+            array grouping too, using COALESCE so flat (non-array) rows keep working exactly
+            as before with array_target_path = ''.
+        </comment>
+        <dropUniqueConstraint tableName="field_mapping" constraintName="uq_field_mapping_step_target"/>
+
+        <addUniqueConstraint tableName="field_mapping"
+            columnNames="step_pk, array_target_path, target_path"
+            constraintName="uq_field_mapping_step_array_target"/>
+
+        <createIndex tableName="field_mapping" indexName="idx_field_mapping_array_target">
+            <column name="step_pk"/>
+            <column name="array_target_path"/>
+            <column name="sort_order"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
