@@ -7,6 +7,22 @@ import { listFieldMappings, createFieldMapping, deleteFieldMapping } from "../co
 // ── constants ─────────────────────────────────────────────────────────────────
 const STEP_TYPE = { GET_STORE: "GET_STORE", TRANSFORM_POST: "TRANSFORM_POST" };
 
+// Real transform_type values -- must stay in sync with erp-config-api's
+// TransformType Literal (app/schemas/field_mapping.py) and the engine's
+// SUPPORTED_TRANSFORM_TYPES (transformation-svc/erp_transform/transform.py).
+// "CONST" is a UI-only rule kind: it doesn't send transform_type="CONST" --
+// it serializes as source_path="__literal.<value>" with transform_type="none",
+// which is how the engine actually resolves literal values.
+const TRANSFORM_TYPES = [
+  "none", "type_cast", "date_format", "date_add", "split_pick",
+  "replace", "trim", "round", "uppercase", "lowercase", "titlecase",
+];
+const UI_RULE_KINDS = ["CONST", ...TRANSFORM_TYPES];
+const LITERAL_PREFIX = "__literal.";
+
+// transform_type values that need a transform_params JSON object.
+const TYPES_WITH_PARAMS = new Set(["type_cast", "date_format", "date_add", "split_pick", "replace", "round"]);
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 function toKVArray(obj) {
   if (!obj || typeof obj !== "object") return [];
@@ -15,21 +31,38 @@ function toKVArray(obj) {
 function fromKVArray(pairs) {
   return pairs.reduce((acc, { key, value }) => (key ? { ...acc, [key]: value } : acc), {});
 }
-const getRuleBadgeClass = (type) => {
-  switch (type) {
-    case "CONCAT": return "bg-tertiary-container/10 text-on-tertiary-container";
+const getRuleBadgeClass = (kind) => {
+  switch (kind) {
     case "CONST": return "bg-tertiary-fixed/30 text-on-tertiary-fixed-variant";
+    case "none": return "bg-slate-200 text-slate-600";
     default: return "bg-primary/10 text-primary";
   }
 };
-const getRuleHelpText = (type) => {
-  switch (type) {
-    case "RENAME": return "Rename a source field. e.g. firstName → name";
-    case "CONCAT": return "Concatenate fields. e.g. firstName + lastName → full_name";
-    case "TRANSFORM": return "Apply a transformation to the source field.";
+const getRuleHelpText = (kind) => {
+  switch (kind) {
     case "CONST": return "Set a constant value for the target field.";
-    case "VARIABLE": return "Use a variable value for the target field.";
-    case "SPLIT": return "Split a source field into multiple target fields.";
+    case "none": return "Copy a source field through unchanged (rename only).";
+    case "type_cast": return "Convert to int, float, bool, or string. e.g. \"42\" → 42";
+    case "date_format": return "Reformat a date string.";
+    case "date_add": return "Add/subtract days, months, or years from a date.";
+    case "split_pick": return "Split on a delimiter, take the Nth part.";
+    case "replace": return "Substitute a substring or regex match.";
+    case "trim": return "Strip leading/trailing whitespace.";
+    case "round": return "Round a number to N decimals.";
+    case "uppercase": return "Convert to UPPER CASE.";
+    case "lowercase": return "Convert to lower case.";
+    case "titlecase": return "Convert To Title Case.";
+    default: return "";
+  }
+};
+const getParamsPlaceholder = (kind) => {
+  switch (kind) {
+    case "type_cast": return '{"targetType":"int"}';
+    case "date_format": return '{"inputFormat":"yyyy-MM-dd","outputFormat":"MM-dd-yyyy"}';
+    case "date_add": return '{"unit":"days","amount":30,"inputFormat":"yyyy-MM-dd","outputFormat":"yyyy-MM-dd"}';
+    case "split_pick": return '{"delimiter":"-","index":0}';
+    case "replace": return '{"find":"-","replace":"/","regex":false}';
+    case "round": return '{"decimals":2}';
     default: return "";
   }
 };
@@ -112,13 +145,17 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
           Object.entries(stepData.extract ?? {}).map(([target, source]) => ({ source, target })),
         );
         const sorted = [...mappings].sort((a, b) => a.sort_order - b.sort_order);
-        setRules(sorted.map((m) => ({
-          id: `rule-${m.mapping_pk}`,
-          mapping_pk: m.mapping_pk,
-          type: m.transform_type || "RENAME",
-          source: m.source_path,
-          target: m.target_path,
-        })));
+        setRules(sorted.map((m) => {
+          const isLiteral = (m.source_path || "").startsWith(LITERAL_PREFIX);
+          return {
+            id: `rule-${m.mapping_pk}`,
+            mapping_pk: m.mapping_pk,
+            kind: isLiteral ? "CONST" : (m.transform_type || "none"),
+            source: isLiteral ? m.source_path.slice(LITERAL_PREFIX.length) : m.source_path,
+            target: m.target_path,
+            params: m.transform_params || "",
+          };
+        }));
         setStepType(stepData.method === "GET" ? STEP_TYPE.GET_STORE : STEP_TYPE.TRANSFORM_POST);
       })
       .catch((err) => setError(err.message))
@@ -143,7 +180,7 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
   const handleRuleChange = (index, field, value) =>
     setRules((c) => c.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
   const addRule = () =>
-    setRules((c) => [...c, { id: `rule-new-${Date.now()}`, type: "RENAME", source: "", target: "" }]);
+    setRules((c) => [...c, { id: `rule-new-${Date.now()}`, kind: "none", source: "", target: "", params: "" }]);
   const removeRule = (index) => setRules((c) => c.filter((_, i) => i !== index));
 
   // ── pair helpers ──────────────────────────────────────────────────────────
@@ -159,21 +196,48 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
     catch { setJsonError("Invalid JSON — preview uses last valid object."); }
   };
 
+  // Best-effort JS mirror of apply_field_transform() (transformation-svc/erp_transform/transform.py)
+  // for live preview only -- the actual transform always runs server-side.
+  const applyPreviewTransform = (raw, kind, paramsStr) => {
+    if (raw === undefined || raw === null) return raw;
+    let params = {};
+    try { params = paramsStr ? JSON.parse(paramsStr) : {}; } catch { /* ignore invalid params in preview */ }
+    switch (kind) {
+      case "uppercase": return String(raw).toUpperCase();
+      case "lowercase": return String(raw).toLowerCase();
+      case "titlecase": return String(raw).replace(/\w\S*/g, (t) => t[0].toUpperCase() + t.slice(1).toLowerCase());
+      case "trim": return String(raw).trim();
+      case "round": return Number(Number(raw).toFixed(params.decimals ?? 0));
+      case "type_cast":
+        if (params.targetType === "int") return parseInt(raw, 10);
+        if (params.targetType === "float") return parseFloat(raw);
+        if (params.targetType === "bool") return ["true", "1", "yes"].includes(String(raw).toLowerCase());
+        return String(raw);
+      case "replace": {
+        const find = params.find ?? "", repl = params.replace ?? "";
+        return params.regex ? String(raw).replace(new RegExp(find, "g"), repl) : String(raw).split(find).join(repl);
+      }
+      case "split_pick": {
+        const parts = String(raw).split(params.delimiter ?? ",");
+        return parts[params.index ?? 0] ?? null;
+      }
+      case "date_format":
+      case "date_add":
+        return raw; // date math intentionally not mirrored in preview -- see server response after save
+      default:
+        return raw;
+    }
+  };
+
   const previewObject = useMemo(() =>
     rules.reduce((acc, rule, index) => {
       const key = rule.target || `field_${index + 1}`;
       let value;
-      if (rule.type === "CONST") {
-        value = (rule.source || '"active"').replace(/^"|"$/g, "");
-      } else if (rule.type === "CONCAT") {
-        value = (rule.source || "").split("+").map((p) => p.trim()).filter(Boolean)
-          .map((p) => { const c = p.replace(/^['"]|['"]$/g, ""); return getNestedValue(sourceData, c) ?? c; })
-          .join(" ");
-      } else if (rule.type === "TRANSFORM") {
-        const raw = getNestedValue(sourceData, rule.source) ?? rule.source;
-        value = typeof raw === "string" ? raw.toUpperCase() : raw;
+      if (rule.kind === "CONST") {
+        value = rule.source || "";
       } else {
-        value = getNestedValue(sourceData, rule.source) ?? rule.source;
+        const raw = getNestedValue(sourceData, rule.source) ?? rule.source;
+        value = applyPreviewTransform(raw, rule.kind, rule.params);
       }
       acc[key] = value;
       return acc;
@@ -257,9 +321,13 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
           rules.map((rule, i) =>
             createFieldMapping({
               step_pk: savedStep.step_pk,
-              source_path: rule.source || "",
+              // "CONST" is UI-only -- the engine reads a literal value from
+              // source_path prefixed with "__literal." (see transform.py),
+              // not from transform_type.
+              source_path: rule.kind === "CONST" ? `${LITERAL_PREFIX}${rule.source || ""}` : (rule.source || ""),
               target_path: rule.target || "",
-              transform_type: rule.type,
+              transform_type: rule.kind === "CONST" ? "none" : rule.kind,
+              transform_params: TYPES_WITH_PARAMS.has(rule.kind) && rule.params ? rule.params : null,
               sort_order: i,
               is_required: false,
               array_source_path: "",
@@ -640,9 +708,9 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
               {rules.map((rule, index) => (
                 <div key={rule.id} className="rounded-3xl border border-outline-variant bg-slate-50 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <select value={rule.type} onChange={(e) => handleRuleChange(index, "type", e.target.value)}
+                    <select value={rule.kind} onChange={(e) => handleRuleChange(index, "kind", e.target.value)}
                       className="rounded-2xl border border-outline-variant bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
-                      {["RENAME","CONCAT","TRANSFORM","CONST","VARIABLE","SPLIT"].map((t) => <option key={t}>{t}</option>)}
+                      {UI_RULE_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
                     </select>
                     <button type="button" onClick={() => removeRule(index)}
                       className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
@@ -651,10 +719,10 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
                   </div>
                   <div className="space-y-2">
                     <label className="block text-[10px] font-semibold uppercase text-slate-500">
-                      {rule.type === "CONST" ? "Constant Value" : "Source path or expression"}
+                      {rule.kind === "CONST" ? "Constant Value" : "Source path"}
                     </label>
                     <input value={rule.source} onChange={(e) => handleRuleChange(index, "source", e.target.value)}
-                      placeholder="Source path or expression"
+                      placeholder={rule.kind === "CONST" ? "e.g. active" : "e.g. contract.name"}
                       className="w-full rounded-2xl border border-outline bg-white px-2.5 py-2 text-xs text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-sm text-slate-400">arrow_forward</span>
@@ -663,9 +731,17 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
                         placeholder="Target field"
                         className="w-full rounded-2xl border border-outline bg-white px-2.5 py-2 text-xs text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
                     </div>
+                    {TYPES_WITH_PARAMS.has(rule.kind) && (
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase text-slate-500">Params (JSON)</label>
+                        <input value={rule.params} onChange={(e) => handleRuleChange(index, "params", e.target.value)}
+                          placeholder={getParamsPlaceholder(rule.kind)}
+                          className="w-full rounded-2xl border border-outline bg-white px-2.5 py-2 font-mono text-[11px] text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                      </div>
+                    )}
                   </div>
-                  <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${getRuleBadgeClass(rule.type)}`}>
-                    {getRuleHelpText(rule.type)}
+                  <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${getRuleBadgeClass(rule.kind)}`}>
+                    {getRuleHelpText(rule.kind)}
                   </div>
                 </div>
               ))}
