@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ConfigSys - JSON Mapping &amp; Transformation</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Geist:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed": "#dae2fd",
+                      "on-secondary": "#ffffff",
+                      "surface-container-high": "#e6e8ea",
+                      "on-tertiary": "#ffffff",
+                      "primary-fixed-dim": "#c3c0ff",
+                      "surface-container": "#eceef0",
+                      "on-primary": "#ffffff",
+                      "on-tertiary-fixed-variant": "#7b2f00",
+                      "surface-bright": "#f7f9fb",
+                      "primary-container": "#4f46e5",
+                      "inverse-surface": "#2d3133",
+                      "secondary": "#565e74",
+                      "inverse-on-surface": "#eff1f3",
+                      "surface": "#f7f9fb",
+                      "tertiary-fixed": "#ffdbcc",
+                      "on-primary-container": "#dad7ff",
+                      "secondary-fixed-dim": "#bec6e0",
+                      "inverse-primary": "#c3c0ff",
+                      "error": "#ba1a1a",
+                      "on-background": "#191c1e",
+                      "error-container": "#ffdad6",
+                      "on-secondary-fixed-variant": "#3f465c",
+                      "surface-tint": "#4d44e3",
+                      "on-surface-variant": "#464555",
+                      "on-error": "#ffffff",
+                      "tertiary": "#7e3000",
+                      "surface-dim": "#d8dadc",
+                      "primary-fixed": "#e2dfff",
+                      "on-surface": "#191c1e",
+                      "surface-variant": "#e0e3e5",
+                      "outline": "#777587",
+                      "surface-container-highest": "#e0e3e5",
+                      "tertiary-fixed-dim": "#ffb695",
+                      "outline-variant": "#c7c4d8",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-container": "#a44100",
+                      "primary": "#3525cd",
+                      "on-tertiary-fixed": "#351000",
+                      "on-secondary-fixed": "#131b2e",
+                      "surface-container-low": "#f2f4f6",
+                      "background": "#f7f9fb",
+                      "on-primary-fixed-variant": "#3323cc",
+                      "on-secondary-container": "#5c647a",
+                      "on-tertiary-container": "#ffd2be",
+                      "secondary-container": "#dae2fd",
+                      "on-primary-fixed": "#0f0069",
+                      "on-error-container": "#93000a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "container-max": "1440px",
+                      "sm": "8px",
+                      "margin-mobile": "16px",
+                      "margin-desktop": "40px",
+                      "xs": "4px",
+                      "xl": "32px",
+                      "base": "4px",
+                      "lg": "24px",
+                      "md": "16px",
+                      "gutter": "24px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Geist"],
+                      "code-md": ["JetBrains Mono"],
+                      "display-lg-mobile": ["Geist"],
+                      "headline-md": ["Geist"],
+                      "body-lg": ["Inter"],
+                      "headline-sm": ["Geist"],
+                      "body-md": ["Inter"],
+                      "label-sm": ["Inter"]
+              },
+              "fontSize": {
+                      "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "code-md": ["13px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "display-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .code-line-number {
+            user-select: none;
+            color: #475569; /* Slate-500 */
+        }
+        .code-keyword { color: #818cf8; } /* Indigo-400 */
+        .code-string { color: #34d399; }  /* Emerald-400 */
+        .code-constant { color: #fbbf24; } /* Amber-400 */
+        .code-comment { color: #94a3b8; }  /* Slate-400 */
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .editor-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .editor-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
+
+        .connector-line {
+            background-image: radial-gradient(#777587 1px, transparent 1px);
+            background-size: 10px 10px;
+            opacity: 0.2;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface h-full overflow-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-desktop h-16 bg-surface border-b border-outline-variant font-body-md text-body-md">
+<div class="flex items-center gap-xl">
+<span class="font-display-lg text-display-lg font-bold text-primary">ConfigSys</span>
+<nav class="hidden md:flex gap-lg h-full items-center">
+<a class="h-16 flex items-center px-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">Dashboard</a>
+<a class="h-16 flex items-center px-sm text-primary font-bold border-b-2 border-primary" href="#">Transformations</a>
+<a class="h-16 flex items-center px-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">Nodes</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-body-md focus:ring-2 focus:ring-primary focus:border-primary transition-all" placeholder="Search pipelines..." type="text"/>
+</div>
+<button class="p-2 rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-secondary-container overflow-hidden ml-2 border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Professional headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSJr1ywKtIR1a91YWQuprKAdB04KGIhCAJjKkTgsTXqYMvNHh_j6eNVVbredLC-V51N9TTafmhevWBbIpzOiUvS6Q0rdJyJ8EZNYmCiZ6FVj_8oTpGgsa6x8rpDZmD1V-m7Fu8aIu9Xqxny0WZhuEPnNQZeB4BimS1HhubBa5h7XrIsPeP-cF1CUig-LqCE76d2F7y8n5_frdA5J0EwvEiECnWxfat4dbBZEw8zeUEeyQZCpnrB5wGjeVP0AKiocsJpGx7wzX2u0i0"/>
+</div>
+</div>
+</header>
+<div class="flex h-full pt-16">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 bottom-0 w-64 flex flex-col py-lg bg-surface-container-low border-r border-outline-variant font-label-sm text-label-sm">
+<div class="px-md mb-xl">
+<div class="flex items-center gap-sm p-sm rounded-xl bg-surface-container-high">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" data-weight="fill">transform</span>
+</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface leading-tight">MapEngine</div>
+<div class="text-on-surface-variant opacity-70">Active Environment</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-md space-y-1">
+<div class="px-md py-2 text-on-surface-variant uppercase tracking-widest text-[10px] font-bold">Pipelines</div>
+<a class="flex items-center gap-md px-md py-sm text-primary font-bold bg-secondary-fixed rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span>User Data Sync</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg cursor-pointer transition-all" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>Inventory Map</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg cursor-pointer transition-all" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span>Metric Transformer</span>
+</a>
+<button class="w-full flex items-center gap-md px-md py-sm text-primary hover:bg-primary/5 rounded-lg border-2 border-dashed border-primary/20 mt-4 transition-all">
+<span class="material-symbols-outlined">add</span>
+<span class="font-bold">Add Workflow</span>
+</button>
+</nav>
+<div class="px-md mt-auto pt-lg border-t border-outline-variant space-y-1">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Mapping Settings</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-64 flex-1 h-full overflow-y-auto bg-background flex flex-col">
+<!-- Header with Workflow Switcher -->
+<div class="px-margin-desktop pt-margin-desktop pb-lg flex flex-col gap-lg border-b border-outline-variant bg-surface">
+<div class="flex justify-between items-start">
+<div>
+<h1 class="font-headline-md text-headline-md text-on-surface">User Data Sync</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Transform legacy CRM records to modern platform schema.</p>
+</div>
+<div class="flex gap-md">
+<button class="px-lg py-2 bg-surface border border-outline-variant text-on-surface-variant font-bold rounded-lg hover:bg-surface-container-high transition-all">Discard</button>
+<button class="px-lg py-2 bg-primary text-on-primary font-bold rounded-lg shadow-md hover:brightness-110 transition-all flex items-center gap-sm">
+<span class="material-symbols-outlined text-[20px]">save</span>
+                            Save Pipeline
+                        </button>
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex items-center gap-1 border-b border-outline-variant">
+<button class="px-lg py-2 border-b-2 border-primary text-primary font-bold text-label-sm">Workflow 1: Main Mapping</button>
+<button class="px-lg py-2 text-on-surface-variant hover:bg-surface-container-low font-medium text-label-sm rounded-t-lg">Workflow 2: Post-Processing</button>
+<button class="px-lg py-2 text-on-surface-variant hover:bg-surface-container-low font-medium text-label-sm rounded-t-lg">Workflow 3: Validation</button>
+<button class="p-2 text-primary hover:bg-surface-container-low rounded-lg ml-2">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+<!-- Three Column Mapping Interface -->
+<div class="flex-1 flex min-h-0 bg-surface-container-lowest">
+<!-- Left Pane: Source JSON -->
+<div class="w-1/3 flex flex-col border-r border-outline-variant">
+<div class="px-lg py-sm bg-surface-container-low border-b border-outline-variant flex justify-between items-center">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant flex items-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">input</span>
+                            SOURCE JSON
+                        </span>
+<span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">LEGACY SCHEMA</span>
+</div>
+<div class="flex-1 bg-[#0f172a] text-[#f8fafc] font-code-md text-[13px] overflow-hidden flex editor-scrollbar">
+<div class="w-10 bg-[#0f172a] border-r border-slate-800 flex flex-col items-end pr-2 py-4 select-none opacity-40">
+<div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div><div>11</div><div>12</div><div>13</div>
+</div>
+<div class="flex-1 p-4 whitespace-pre overflow-auto">
+{
+  <span class="code-keyword">"legacy_id"</span>: <span class="code-constant">10293</span>,
+  <span class="code-keyword">"firstName"</span>: <span class="code-string">"John"</span>,
+  <span class="code-keyword">"lastName"</span>: <span class="code-string">"Doe"</span>,
+  <span class="code-keyword">"email_addr"</span>: <span class="code-string">"john.d@oldmail.com"</span>,
+  <span class="code-keyword">"status"</span>: <span class="code-constant">1</span>,
+  <span class="code-keyword">"attributes"</span>: {
+    <span class="code-keyword">"tier"</span>: <span class="code-string">"premium"</span>,
+    <span class="code-keyword">"joined"</span>: <span class="code-string">"2022-05-12"</span>
+  }
+}</div>
+</div>
+</div>
+<!-- Center Pane: Mapping Rules -->
+<div class="w-1/3 flex flex-col bg-surface border-r border-outline-variant relative overflow-hidden">
+<div class="px-lg py-sm bg-surface-container-low border-b border-outline-variant flex justify-between items-center z-10">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant flex items-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+                            TRANSFORMATION RULES
+                        </span>
+<button class="text-primary font-bold text-[11px] hover:underline">Add Rule</button>
+</div>
+<div class="flex-1 overflow-y-auto p-md space-y-md z-10">
+<!-- Rule 1: Rename -->
+<div class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm hover:border-primary transition-colors group">
+<div class="flex items-center justify-between mb-sm">
+<span class="text-[10px] font-bold text-primary px-2 py-0.5 bg-primary/10 rounded">RENAME</span>
+<button class="opacity-0 group-hover:opacity-100 p-1 text-on-surface-variant"><span class="material-symbols-outlined text-[16px]">close</span></button>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex-1 bg-surface-container-high px-3 py-2 rounded text-body-md font-code-md text-on-surface truncate">legacy_id</div>
+<span class="material-symbols-outlined text-outline">arrow_forward</span>
+<div class="flex-1 relative">
+<input class="w-full bg-surface-container-lowest border border-outline px-3 py-2 rounded text-body-md font-code-md focus:ring-1 focus:ring-primary outline-none" type="text" value="user_id"/>
+</div>
+</div>
+</div>
+<!-- Rule 2: Concat -->
+<div class="p-md bg-surface-container-lowest border border-primary/40 rounded-xl shadow-sm hover:border-primary transition-colors group relative">
+<div class="flex items-center justify-between mb-sm">
+<span class="text-[10px] font-bold text-on-tertiary-container px-2 py-0.5 bg-tertiary-container/10 rounded">CONCAT</span>
+<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+<button class="p-1 text-on-surface-variant"><span class="material-symbols-outlined text-[16px]">settings</span></button>
+<button class="p-1 text-on-surface-variant"><span class="material-symbols-outlined text-[16px]">close</span></button>
+</div>
+</div>
+<div class="space-y-2 mb-sm">
+<div class="flex items-center gap-2">
+<div class="flex-1 bg-surface-container-high px-3 py-2 rounded text-[12px] font-code-md text-on-surface truncate">firstName</div>
+<span class="text-outline font-bold">+</span>
+<div class="flex-1 bg-surface-container-high px-3 py-2 rounded text-[12px] font-code-md text-on-surface truncate">lastName</div>
+</div>
+</div>
+<div class="flex items-center gap-2 pt-2 border-t border-outline-variant">
+<span class="material-symbols-outlined text-outline">subdirectory_arrow_right</span>
+<div class="flex-1 relative">
+<input class="w-full bg-surface-container-lowest border border-outline px-3 py-2 rounded text-body-md font-code-md focus:ring-1 focus:ring-primary outline-none" type="text" value="full_name"/>
+</div>
+</div>
+</div>
+<!-- Rule 3: Transform -->
+<div class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm hover:border-primary transition-colors group">
+<div class="flex items-center justify-between mb-sm">
+<span class="text-[10px] font-bold text-primary px-2 py-0.5 bg-primary/10 rounded">TRANSFORM</span>
+<button class="opacity-0 group-hover:opacity-100 p-1 text-on-surface-variant"><span class="material-symbols-outlined text-[16px]">close</span></button>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex-1 bg-surface-container-high px-3 py-2 rounded text-body-md font-code-md text-on-surface truncate">attributes.tier</div>
+<div class="px-2 py-1 bg-secondary-container text-on-secondary-container rounded flex items-center gap-1 cursor-pointer hover:brightness-95 transition-all">
+<span class="text-[10px] font-bold">UPPER</span>
+<span class="material-symbols-outlined text-[14px]">expand_more</span>
+</div>
+<span class="material-symbols-outlined text-outline">arrow_forward</span>
+<div class="flex-1 relative">
+<input class="w-full bg-surface-container-lowest border border-outline px-3 py-2 rounded text-body-md font-code-md focus:ring-1 focus:ring-primary outline-none" type="text" value="membership_level"/>
+</div>
+</div>
+</div>
+<!-- Rule 4: Constant -->
+<div class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm hover:border-primary transition-colors group">
+<div class="flex items-center justify-between mb-sm">
+<span class="text-[10px] font-bold text-on-tertiary-fixed-variant px-2 py-0.5 bg-tertiary-fixed/30 rounded">CONST</span>
+<button class="opacity-0 group-hover:opacity-100 p-1 text-on-surface-variant"><span class="material-symbols-outlined text-[16px]">close</span></button>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex-1 bg-surface-container px-3 py-2 rounded text-body-md font-code-md text-on-surface italic">"active"</div>
+<span class="material-symbols-outlined text-outline">arrow_forward</span>
+<div class="flex-1 relative">
+<input class="w-full bg-surface-container-lowest border border-outline px-3 py-2 rounded text-body-md font-code-md focus:ring-1 focus:ring-primary outline-none" type="text" value="account_status"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Visual Connectors Overlay -->
+<div class="absolute inset-0 connector-line pointer-events-none opacity-30"></div>
+</div>
+<!-- Right Pane: Destination Preview -->
+<div class="w-1/3 flex flex-col">
+<div class="px-lg py-sm bg-surface-container-low border-b border-outline-variant flex justify-between items-center">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant flex items-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">output</span>
+                            DESTINATION FORMAT
+                        </span>
+<div class="flex gap-2"><button class="p-1 hover:bg-surface-container-high rounded text-primary flex items-center gap-1" title="Destination Settings"><span class="material-symbols-outlined text-[18px]">settings</span><span class="text-[11px] font-bold">CONFIG</span></button>
+<button class="p-1 hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+</div>
+</div>
+<div class="flex-1 bg-[#0f172a] text-[#f8fafc] font-code-md text-[13px] overflow-hidden flex editor-scrollbar">
+<div class="w-10 bg-[#0f172a] border-r border-slate-800 flex flex-col items-end pr-2 py-4 select-none opacity-40">
+<div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+</div>
+<div class="flex-1 p-4 whitespace-pre overflow-auto">
+{
+  <span class="code-keyword">"user_id"</span>: <span class="code-constant">10293</span>,
+  <span class="code-keyword">"full_name"</span>: <span class="code-string">"JOHN DOE"</span>,
+  <span class="code-keyword">"email_addr"</span>: <span class="code-string">"john.d@oldmail.com"</span>,
+  <span class="code-keyword">"membership_level"</span>: <span class="code-string">"PREMIUM"</span>,
+  <span class="code-keyword">"account_status"</span>: <span class="code-string">"active"</span>,
+  <span class="code-keyword">"metadata"</span>: {
+    <span class="code-keyword">"source"</span>: <span class="code-string">"legacy_migration"</span>
+  }
+}</div>
+</div>
+</div>
+<div class="w-80 flex flex-col border-l border-outline-variant bg-surface-container-low transition-all">
+<div class="px-lg py-sm bg-surface-container-low border-b border-outline-variant flex justify-between items-center">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant flex items-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">api</span>
+            DESTINATION CONFIG
+        </span>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-[18px]">close</span></button>
+</div>
+<div class="flex-1 overflow-y-auto p-md space-y-lg">
+<!-- URL Configuration -->
+<div class="space-y-2">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Endpoint URL</label>
+<div class="flex gap-2">
+<div class="bg-surface-container-highest px-2 py-1 rounded text-[10px] font-bold text-primary">POST</div>
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-body-md font-code-md text-[12px] outline-none focus:border-primary" type="text" value="https://api.platform.com/v2/users"/>
+</div>
+</div>
+<!-- Request Parameters -->
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">URL Parameters</label>
+<button class="text-primary text-[10px] font-bold hover:underline">+ Add</button>
+</div>
+<div class="space-y-1">
+<div class="flex gap-1">
+<input class="w-1/3 bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[11px] font-code-md" type="text" value="version"/>
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[11px] font-code-md" type="text" value="2024-01"/>
+</div>
+</div>
+</div>
+<!-- Request Headers -->
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">HTTP Headers</label>
+<button class="text-primary text-[10px] font-bold hover:underline">+ Add</button>
+</div>
+<div class="space-y-1">
+<div class="flex gap-1">
+<input class="w-1/3 bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[11px] font-code-md" type="text" value="Content-Type"/>
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[11px] font-code-md" type="text" value="application/json"/>
+</div>
+<div class="flex gap-1">
+<input class="w-1/3 bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[11px] font-code-md" type="text" value="Authorization"/>
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[11px] font-code-md" type="password" value="••••••••••••"/>
+</div>
+</div>
+</div>
+<!-- Response Mapping -->
+<div class="space-y-2 pt-4 border-t border-outline-variant">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Response Mapping</label>
+<div class="p-2 bg-surface-container-high rounded-lg space-y-2">
+<div class="flex items-center justify-between">
+<span class="text-[11px] text-on-surface-variant">Store <code class="bg-surface-container px-1 rounded">body.id</code> in:</span>
+<input class="w-24 bg-surface-container-lowest border border-outline-variant rounded px-2 py-0.5 text-[11px] font-code-md" type="text" value="ext_id"/>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-[11px] text-on-surface-variant">Store <code class="bg-surface-container px-1 rounded">header.x-ratelimit</code> in:</span>
+<input class="w-24 bg-surface-container-lowest border border-outline-variant rounded px-2 py-0.5 text-[11px] font-code-md" type="text" value="limit"/>
+</div>
+</div>
+</div>
+</div>
+</div></div>
+<!-- Validation/Status Footer -->
+<div class="h-16 bg-surface border-t border-outline-variant px-margin-desktop flex items-center justify-between">
+<div class="flex items-center gap-md text-emerald-600 font-bold text-label-sm">
+<span class="material-symbols-outlined">check_circle</span>
+<span>Mapping Logic Validated</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="text-on-surface-variant text-[11px] font-medium">
+<span class="opacity-60">TRANSFORMATIONS:</span> 6 ACTIVE
+                    </div>
+<div class="text-on-surface-variant text-[11px] font-medium">
+<span class="opacity-60">TARGET:</span> PRODUCTION_API_V2
+                    </div>
+<button class="px-lg py-2 bg-primary-container text-on-primary-container font-bold rounded-lg text-label-sm hover:brightness-105 active:scale-95 transition-all">
+                        Run Test Transformation
+                    </button>
+</div>
+</div>
+</main>
+</div>
+<!-- Micro-interaction Script -->
+<script>
+        document.querySelectorAll('button, a').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const circle = document.createElement('span');
+                circle.style.position = 'absolute';
+                circle.style.borderRadius = '50%';
+                circle.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+                circle.style.transform = 'scale(0)';
+                circle.style.pointerEvents = 'none';
+                circle.style.width = circle.style.height = '100px';
+                
+                const rect = el.getBoundingClientRect();
+                circle.style.left = (e.clientX - rect.left - 50) + 'px';
+                circle.style.top = (e.clientY - rect.top - 50) + 'px';
+                
+                el.style.position = 'relative';
+                el.style.overflow = 'hidden';
+                el.appendChild(circle);
+                
+                circle.animate([
+                    { transform: 'scale(0)', opacity: 1 },
+                    { transform: 'scale(4)', opacity: 0 }
+                ], { duration: 400, easing: 'ease-out' }).onfinish = () => circle.remove();
+            });
+        });
+    </script>
+</body></html>
