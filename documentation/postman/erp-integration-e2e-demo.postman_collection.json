@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "1c29c37b-9ad5-4e9f-bb95-57a7584210fb",
+    "_postman_id": "5b3cd3f9-3eca-4238-87d3-05d3f7fa6ca1",
     "name": "erp-integration - Onboarding to Transform (E2E Demo)",
     "description": "End-to-end client onboarding flow: create client -> define target -> add step -> define pipeline -> attach step to pipeline -> add field mappings (one per supported transform_type) -> run the real transform via transformation-svc. Run top to bottom.\n\nRequires erp-config-api running on {{configApiBaseUrl}} (default http://localhost:8010) and transformation-svc running on {{transformSvcBaseUrl}} (default http://localhost:8000), both pointed at the same local Postgres.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -503,6 +503,273 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "8 - PAT-02 Sequential POST Chain Demo (create-contract-header then create-contract-lines)",
+      "item": [
+        {
+          "name": "8.1 - Define Target (reuse or create Oracle Fusion endpoint)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/targets",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "targets"
+              ]
+            },
+            "description": "PAT-02 (Sequential POST Chain): same client (request 1), a dedicated target for this demo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_id\": \"{{pat02TargetId}}\",\n  \"client_id\": \"{{demoClientId}}\",\n  \"target_name\": \"OracleFusionContractsPAT02\",\n  \"base_url\": \"https://ewnj-test.fa.us8.oraclecloud.com\",\n  \"auth_type\": \"oauth2\",\n  \"credential_ref\": \"oracle-ewnj-test-creds-pat02\",\n  \"default_headers\": {},\n  \"is_active\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.2 - Add Step 1 (create-contract-header)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "steps"
+              ]
+            },
+            "description": "Step 1 of the chain: POST the contract header. extract tells the send stage how to pull ContractId back out of Oracle's response so step 2 can reference it via {{steps.create-contract-header.ContractId}}. Copy the response step_pk into pat02Step1Pk.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{demoClientId}}\",\n  \"target_id\": \"{{pat02TargetId}}\",\n  \"step_name\": \"create-contract-header\",\n  \"method\": \"POST\",\n  \"path\": \"/fscmRestApi/resources/11.13.18.05/contracts\",\n  \"extract\": {\n    \"ContractId\": \"ContractId\"\n  },\n  \"is_active\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.3 - Add Step 2 (create-contract-lines, depends on Step 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "steps"
+              ]
+            },
+            "description": "Step 2 of the chain: POST the contract lines, with Step 1's ContractId templated straight into the URL path. rollback_method/path is the compensating DELETE if this step exhausts retries (per PAT-02 spec 5.2). Copy the response step_pk into pat02Step2Pk.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{demoClientId}}\",\n  \"target_id\": \"{{pat02TargetId}}\",\n  \"step_name\": \"create-contract-lines\",\n  \"method\": \"POST\",\n  \"path\": \"/fscmRestApi/resources/11.13.18.05/contracts/{{steps.create-contract-header.ContractId}}/lines\",\n  \"rollback_method\": \"DELETE\",\n  \"rollback_path\": \"/fscmRestApi/resources/11.13.18.05/contracts/{{steps.create-contract-header.ContractId}}\",\n  \"is_active\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.4 - Define Pipeline (PAT-02)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/pipelines",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipelines"
+              ]
+            },
+            "description": "Define the PAT-02 pipeline routing key: one Salesforce event, two sequential POSTs against the same ERP.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pat02PipelineId}}\",\n  \"client_id\": \"{{demoClientId}}\",\n  \"version\": \"1.0\",\n  \"source_system\": \"salesforce\",\n  \"object_type\": \"ContractAward\",\n  \"event_type\": \"createSequential\",\n  \"pattern_id\": \"PAT-02\",\n  \"status\": \"active\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.5 - Attach Step 1 to Pipeline (seq 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/pipeline-steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipeline-steps"
+              ]
+            },
+            "description": "Attach create-contract-header as seq 1 -- runs first.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pat02PipelineId}}\",\n  \"step_pk\": \"{{pat02Step1Pk}}\",\n  \"seq\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.6 - Attach Step 2 to Pipeline (seq 2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/pipeline-steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipeline-steps"
+              ]
+            },
+            "description": "Attach create-contract-lines as seq 2 -- runs after step 1, can reference its output.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pat02PipelineId}}\",\n  \"step_pk\": \"{{pat02Step2Pk}}\",\n  \"seq\": 2\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.7 - Add Field Mappings for Step 1 (bulk)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings/bulk",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings",
+                "bulk"
+              ]
+            },
+            "description": "Field mappings for the contract-header POST body (step 1).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{pat02Step1Pk}}\",\n  \"mappings\": [\n    {\n      \"source_path\": \"contract.name\",\n      \"target_path\": \"ContractName\",\n      \"is_required\": true,\n      \"sort_order\": 1\n    },\n    {\n      \"source_path\": \"currency\",\n      \"target_path\": \"CurrencyCode\",\n      \"default_value\": \"USD\",\n      \"sort_order\": 2\n    },\n    {\n      \"source_path\": \"startDate\",\n      \"target_path\": \"StartDate\",\n      \"transform_type\": \"date_format\",\n      \"transform_params\": \"{\\\"outputFormat\\\": \\\"yyyy-MM-dd\\\"}\",\n      \"sort_order\": 3\n    },\n    {\n      \"source_path\": \"endDate\",\n      \"target_path\": \"EndDate\",\n      \"transform_type\": \"date_format\",\n      \"transform_params\": \"{\\\"outputFormat\\\": \\\"yyyy-MM-dd\\\"}\",\n      \"sort_order\": 4\n    }\n  ]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.8 - Add Field Mappings for Step 2 (bulk, references Step 1's output)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings/bulk",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings",
+                "bulk"
+              ]
+            },
+            "description": "Field mappings for the contract-lines POST body (step 2). source_path \"steps.create-contract-header.ContractId\" resolves against the running steps scope transform_pipeline() builds up as it walks seq order -- same mechanism the existing PAT-03 seed pipeline uses (field_mapping.mapping_pk=1, step_pk=2, source_path=steps.lookup-project.ProjectId).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{pat02Step2Pk}}\",\n  \"mappings\": [\n    {\n      \"source_path\": \"steps.create-contract-header.ContractId\",\n      \"target_path\": \"ContractId\",\n      \"is_required\": true,\n      \"sort_order\": 1\n    },\n    {\n      \"source_path\": \"projectNumber\",\n      \"target_path\": \"ProjectNumber\",\n      \"sort_order\": 2\n    },\n    {\n      \"source_path\": \"amount\",\n      \"target_path\": \"LineAmount\",\n      \"transform_type\": \"round\",\n      \"transform_params\": \"{\\\"decimals\\\": 2}\",\n      \"sort_order\": 3\n    }\n  ]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8.9 - Run End-to-End Transform (PAT-02 chain)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{transformSvcBaseUrl}}/transform-pipeline",
+              "host": [
+                "{{transformSvcBaseUrl}}"
+              ],
+              "path": [
+                "transform-pipeline"
+              ]
+            },
+            "description": "Runs both steps in seq order. Step 1's transformed_body is the contract header payload; step 2's transformed_body shows ContractId resolved from {{steps.create-contract-header.ContractId}} (the value transform_pipeline() would use once step 1's real Oracle response is folded into the steps scope at send-time -- this transform-only call shows it as null since no live HTTP call has happened yet, exactly like the PAT-03 pipeline's step 2 behaves against ProjectId before lookup-project actually runs).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pat02PipelineId}}\",\n  \"source\": {\n    \"contract\": {\n      \"name\": \"Government Infrastructure Project\"\n    },\n    \"amount\": 500000,\n    \"currency\": \"USD\",\n    \"startDate\": \"2024-01-15\",\n    \"endDate\": \"2026-12-31\",\n    \"projectNumber\": \"P-2024-100\"\n  }\n}"
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Standalone demo of PAT-02 from integration-engine-requirements-v2.md \u00a75.2: one inbound event drives two sequential POSTs against the same ERP target, where step 2 depends on a value (ContractId) returned by step 1. Independent of requests 1-7 above (only reuses {{demoClientId}}) -- run 8.1 through 8.9 in order."
     }
   ],
   "variable": [
@@ -520,6 +787,22 @@
     },
     {
       "key": "demoStepPk",
+      "value": ""
+    },
+    {
+      "key": "pat02TargetId",
+      "value": "AV-DEMO-oracle-fusion-contracts-pat02"
+    },
+    {
+      "key": "pat02PipelineId",
+      "value": "award-to-oracle-contract-pat02-demo-v1"
+    },
+    {
+      "key": "pat02Step1Pk",
+      "value": ""
+    },
+    {
+      "key": "pat02Step2Pk",
       "value": ""
     }
   ]
