@@ -5,10 +5,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.crud.field_mapping import (
-    crud_field_mapping, create_field_mapping, update_field_mapping, list_mappings_for_step,
+    crud_field_mapping, create_field_mapping, create_field_mappings_bulk,
+    update_field_mapping, list_mappings_for_step,
 )
 from app.schemas.field_mapping import (
-    FieldMappingCreate, FieldMappingRead, FieldMappingUpdate,
+    FieldMappingBulkCreate, FieldMappingCreate, FieldMappingRead, FieldMappingUpdate,
 )
 
 router = APIRouter(prefix="/field-mappings", tags=["field-mappings"])
@@ -29,6 +30,14 @@ def list_field_mappings(
 @router.post("", response_model=FieldMappingRead, status_code=status.HTTP_201_CREATED)
 def create_field_mapping_endpoint(payload: FieldMappingCreate, db: Session = Depends(get_db)):
     return create_field_mapping(db, payload)
+
+
+@router.post("/bulk", response_model=List[FieldMappingRead], status_code=status.HTTP_201_CREATED)
+def create_field_mappings_bulk_endpoint(payload: FieldMappingBulkCreate, db: Session = Depends(get_db)):
+    """Create every mapping row for a step_pk in one request/transaction --
+    convenience for onboarding flows adding many rows at once (all rows land
+    or none do). The single-row POST above still exists for one-off adds."""
+    return create_field_mappings_bulk(db, payload)
 
 
 @router.get("/{mapping_pk}", response_model=FieldMappingRead)

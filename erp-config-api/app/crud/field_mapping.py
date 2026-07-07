@@ -2,7 +2,9 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.models import FieldMapping, Step
-from app.schemas.field_mapping import FieldMappingCreate, FieldMappingUpdate
+from app.schemas.field_mapping import (
+    FieldMappingBulkCreate, FieldMappingCreate, FieldMappingUpdate,
+)
 from .base import CRUDBase
 
 crud_field_mapping = CRUDBase(FieldMapping, "FieldMapping")
@@ -42,6 +44,49 @@ def create_field_mapping(db: Session, payload: FieldMappingCreate) -> FieldMappi
     db.commit()
     db.refresh(obj)
     return obj
+
+
+def create_field_mappings_bulk(
+    db: Session, payload: FieldMappingBulkCreate
+) -> list[FieldMapping]:
+    """Same validation as create_field_mapping (step exists, no target_path
+    collision within the array group), but for the whole batch in one
+    transaction -- either every row lands or none does."""
+    step = db.query(Step).filter(Step.step_pk == payload.step_pk).first()
+    if step is None:
+        raise NotFoundError(f"Step '{payload.step_pk}' not found")
+
+    seen = set()
+    for m in payload.mappings:
+        key = (m.array_target_path, m.target_path)
+        if key in seen:
+            raise ConflictError(
+                f"target_path '{m.target_path}' duplicated in request body "
+                f"for array '{m.array_target_path or '(scalar)'}'"
+            )
+        seen.add(key)
+
+        existing = (
+            db.query(FieldMapping)
+            .filter(
+                FieldMapping.step_pk == payload.step_pk,
+                FieldMapping.array_target_path == m.array_target_path,
+                FieldMapping.target_path == m.target_path,
+            )
+            .first()
+        )
+        if existing is not None:
+            raise ConflictError(
+                f"target_path '{m.target_path}' already mapped for step {payload.step_pk} "
+                f"in array '{m.array_target_path or '(scalar)'}'"
+            )
+
+    objs = [FieldMapping(step_pk=payload.step_pk, **m.model_dump()) for m in payload.mappings]
+    db.add_all(objs)
+    db.commit()
+    for obj in objs:
+        db.refresh(obj)
+    return objs
 
 
 def update_field_mapping(

@@ -5,13 +5,34 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8010" },
-    { "key": "clientId", "value": "AV" },
-    { "key": "targetId", "value": "AV-oracle-fusion" },
-    { "key": "stepPk", "value": "1" },
-    { "key": "pipelineId", "value": "award-to-oracle-contract-v1" },
-    { "key": "pipelineStepPk", "value": "1" },
-    { "key": "mappingPk", "value": "1" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8010"
+    },
+    {
+      "key": "clientId",
+      "value": "AV"
+    },
+    {
+      "key": "targetId",
+      "value": "AV-oracle-fusion"
+    },
+    {
+      "key": "stepPk",
+      "value": "1"
+    },
+    {
+      "key": "pipelineId",
+      "value": "award-to-oracle-contract-v1"
+    },
+    {
+      "key": "pipelineStepPk",
+      "value": "1"
+    },
+    {
+      "key": "mappingPk",
+      "value": "1"
+    }
   ],
   "item": [
     {
@@ -21,7 +42,15 @@
           "name": "Health Check",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
           }
         }
       ]
@@ -33,19 +62,44 @@
           "name": "List Clients",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/api/v1/clients", "host": ["{{baseUrl}}"], "path": ["api", "v1", "clients"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients"
+              ]
+            }
           }
         },
         {
           "name": "Create Client",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"client_name\": \"Avanade\",\n  \"is_active\": true\n}"
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/clients", "host": ["{{baseUrl}}"], "path": ["api", "v1", "clients"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients"
+              ]
+            }
           }
         },
         {
@@ -54,8 +108,15 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "clients", "{{clientId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{clientId}}"
+              ]
             }
           }
         },
@@ -63,12 +124,27 @@
           "name": "Update Client",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"is_active\": false\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "clients", "{{clientId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{clientId}}"
+              ]
             }
           }
         },
@@ -78,8 +154,15 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/api/v1/clients/{{clientId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "clients", "{{clientId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{clientId}}"
+              ]
             }
           }
         }
@@ -94,9 +177,20 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/targets?client_id={{clientId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "targets"],
-              "query": [{ "key": "client_id", "value": "{{clientId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "targets"
+              ],
+              "query": [
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}"
+                }
+              ]
             }
           }
         },
@@ -104,12 +198,27 @@
           "name": "Create Target",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"target_id\": \"{{targetId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"target_name\": \"OracleFusion\",\n  \"base_url\": \"https://oracle-instance.oraclecloud.com\",\n  \"auth_type\": \"oauth2\",\n  \"credential_ref\": \"oracle-prod-creds\",\n  \"default_headers\": {\n    \"Content-Type\": \"application/json\"\n  },\n  \"is_active\": true\n}"
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/targets", "host": ["{{baseUrl}}"], "path": ["api", "v1", "targets"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/targets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "targets"
+              ]
+            }
           }
         },
         {
@@ -118,8 +227,15 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/targets/{{targetId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "targets", "{{targetId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "targets",
+                "{{targetId}}"
+              ]
             }
           }
         },
@@ -127,12 +243,27 @@
           "name": "Update Target",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"is_active\": false\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/targets/{{targetId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "targets", "{{targetId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "targets",
+                "{{targetId}}"
+              ]
             }
           }
         },
@@ -142,8 +273,15 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/api/v1/targets/{{targetId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "targets", "{{targetId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "targets",
+                "{{targetId}}"
+              ]
             }
           }
         }
@@ -158,9 +296,20 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/steps?client_id={{clientId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "steps"],
-              "query": [{ "key": "client_id", "value": "{{clientId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "steps"
+              ],
+              "query": [
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}"
+                }
+              ]
             }
           }
         },
@@ -168,12 +317,27 @@
           "name": "Create Step",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"target_id\": \"{{targetId}}\",\n  \"step_name\": \"create-contract\",\n  \"method\": \"POST\",\n  \"path\": \"/fscmRestApi/resources/11.13.18.05/contracts\",\n  \"on_not_found\": \"fail\",\n  \"on_multiple_results\": \"useFirst\",\n  \"is_active\": true\n}"
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/steps", "host": ["{{baseUrl}}"], "path": ["api", "v1", "steps"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/steps",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "steps"
+              ]
+            }
           }
         },
         {
@@ -182,8 +346,15 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/steps/{{stepPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "steps", "{{stepPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "steps",
+                "{{stepPk}}"
+              ]
             }
           }
         },
@@ -191,12 +362,27 @@
           "name": "Update Step",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"on_not_found\": \"skip\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"on_not_found\": \"skip\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/steps/{{stepPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "steps", "{{stepPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "steps",
+                "{{stepPk}}"
+              ]
             }
           }
         },
@@ -206,8 +392,15 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/api/v1/steps/{{stepPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "steps", "{{stepPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "steps",
+                "{{stepPk}}"
+              ]
             }
           }
         }
@@ -222,9 +415,20 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipelines?client_id={{clientId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipelines"],
-              "query": [{ "key": "client_id", "value": "{{clientId}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipelines"
+              ],
+              "query": [
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}"
+                }
+              ]
             }
           }
         },
@@ -232,12 +436,27 @@
           "name": "Create Pipeline",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"version\": \"1.0\",\n  \"source_system\": \"salesforce\",\n  \"object_type\": \"ContractAward\",\n  \"event_type\": \"create\",\n  \"pattern_id\": \"PAT-03\",\n  \"status\": \"active\",\n  \"retry_max_attempts\": 3,\n  \"retry_backoff\": \"exponential\",\n  \"retry_backoff_base_ms\": 2000,\n  \"retry_on_status_codes\": \"500,502,503,504\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/pipelines", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pipelines",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipelines"
+              ]
+            }
           }
         },
         {
@@ -246,8 +465,15 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipelines", "{{pipelineId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipelines",
+                "{{pipelineId}}"
+              ]
             }
           }
         },
@@ -255,12 +481,27 @@
           "name": "Update Pipeline",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"status\": \"inactive\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipelines", "{{pipelineId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipelines",
+                "{{pipelineId}}"
+              ]
             }
           }
         },
@@ -270,8 +511,15 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipelines", "{{pipelineId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipelines",
+                "{{pipelineId}}"
+              ]
             }
           }
         },
@@ -281,8 +529,16 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipelines/{{pipelineId}}/steps",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipelines", "{{pipelineId}}", "steps"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipelines",
+                "{{pipelineId}}",
+                "steps"
+              ]
             }
           }
         }
@@ -295,15 +551,26 @@
           "name": "Attach Step to Pipeline",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"step_pk\": {{stepPk}},\n  \"seq\": 1\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipeline-steps",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipeline-steps"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipeline-steps"
+              ]
             }
           }
         },
@@ -313,8 +580,15 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipeline-steps/{{pipelineStepPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipeline-steps", "{{pipelineStepPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipeline-steps",
+                "{{pipelineStepPk}}"
+              ]
             }
           }
         },
@@ -322,12 +596,27 @@
           "name": "Update Pipeline Step Seq",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"seq\": 2\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seq\": 2\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipeline-steps/{{pipelineStepPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipeline-steps", "{{pipelineStepPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipeline-steps",
+                "{{pipelineStepPk}}"
+              ]
             }
           }
         },
@@ -337,8 +626,15 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/api/v1/pipeline-steps/{{pipelineStepPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pipeline-steps", "{{pipelineStepPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pipeline-steps",
+                "{{pipelineStepPk}}"
+              ]
             }
           }
         }
@@ -353,9 +649,20 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/field-mappings?step_pk={{stepPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "field-mappings"],
-              "query": [{ "key": "step_pk", "value": "{{stepPk}}" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ],
+              "query": [
+                {
+                  "key": "step_pk",
+                  "value": "{{stepPk}}"
+                }
+              ]
             }
           }
         },
@@ -363,16 +670,56 @@
           "name": "Create Field Mapping",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"step_pk\": {{stepPk}},\n  \"source_path\": \"contract.name\",\n  \"target_path\": \"ContractName\",\n  \"transform_type\": \"none\",\n  \"is_required\": true,\n  \"sort_order\": 1\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/field-mappings",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "field-mappings"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
             }
+          }
+        },
+        {
+          "name": "Create Field Mappings (Bulk)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": {{stepPk}},\n  \"mappings\": [\n    {\n      \"source_path\": \"contract.name\",\n      \"target_path\": \"ContractName\",\n      \"transform_type\": \"none\",\n      \"is_required\": true,\n      \"sort_order\": 1\n    },\n    {\n      \"source_path\": \"contract.amount\",\n      \"target_path\": \"Amount\",\n      \"transform_type\": \"round\",\n      \"transform_params\": \"{\\\"decimals\\\": 2}\",\n      \"sort_order\": 2\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/field-mappings/bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings",
+                "bulk"
+              ]
+            },
+            "description": "Creates every mapping row for a step_pk in one request/transaction. All rows land or none do."
           }
         },
         {
@@ -381,8 +728,15 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/field-mappings/{{mappingPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "field-mappings", "{{mappingPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings",
+                "{{mappingPk}}"
+              ]
             }
           }
         },
@@ -390,12 +744,27 @@
           "name": "Update Field Mapping",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"default_value\": \"USD\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_value\": \"USD\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/field-mappings/{{mappingPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "field-mappings", "{{mappingPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings",
+                "{{mappingPk}}"
+              ]
             }
           }
         },
@@ -405,8 +774,15 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/api/v1/field-mappings/{{mappingPk}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "field-mappings", "{{mappingPk}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings",
+                "{{mappingPk}}"
+              ]
             }
           }
         }

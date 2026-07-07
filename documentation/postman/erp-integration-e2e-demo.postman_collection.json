@@ -1,0 +1,526 @@
+{
+  "info": {
+    "_postman_id": "1c29c37b-9ad5-4e9f-bb95-57a7584210fb",
+    "name": "erp-integration - Onboarding to Transform (E2E Demo)",
+    "description": "End-to-end client onboarding flow: create client -> define target -> add step -> define pipeline -> attach step to pipeline -> add field mappings (one per supported transform_type) -> run the real transform via transformation-svc. Run top to bottom.\n\nRequires erp-config-api running on {{configApiBaseUrl}} (default http://localhost:8010) and transformation-svc running on {{transformSvcBaseUrl}} (default http://localhost:8000), both pointed at the same local Postgres.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1 - Onboard Client",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{configApiBaseUrl}}/api/v1/clients",
+          "host": [
+            "{{configApiBaseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "clients"
+          ]
+        },
+        "description": "Onboard the client tenant. Everything below (target, step, pipeline) hangs off this client_id.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"client_id\": \"{{demoClientId}}\",\n  \"client_name\": \"AeroVironment Demo\",\n  \"is_active\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2 - Define Target (Oracle Fusion endpoint)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{configApiBaseUrl}}/api/v1/targets",
+          "host": [
+            "{{configApiBaseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "targets"
+          ]
+        },
+        "description": "Define the ERP target (base_url + auth) this client's steps will call.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"target_id\": \"{{demoTargetId}}\",\n  \"client_id\": \"{{demoClientId}}\",\n  \"target_name\": \"OracleFusionContractsDemo\",\n  \"base_url\": \"https://ewnj-test.fa.us8.oraclecloud.com\",\n  \"auth_type\": \"oauth2\",\n  \"credential_ref\": \"oracle-ewnj-test-creds-demo\",\n  \"default_headers\": {},\n  \"is_active\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3 - Add Step (create-oracle-contract)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{configApiBaseUrl}}/api/v1/steps",
+          "host": [
+            "{{configApiBaseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "steps"
+          ]
+        },
+        "description": "Add the step (the HTTP call this pipeline will make). Copy the response's step_pk into the demoStepPk collection variable before running the next requests (or add a Tests script: pm.collectionVariables.set('demoStepPk', pm.response.json().step_pk)).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"client_id\": \"{{demoClientId}}\",\n  \"target_id\": \"{{demoTargetId}}\",\n  \"step_name\": \"create-oracle-contract-demo\",\n  \"method\": \"POST\",\n  \"path\": \"/fscmRestApi/resources/11.13.18.05/contracts\",\n  \"is_active\": true\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4 - Define Pipeline (award-to-oracle-contract-demo-v1)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{configApiBaseUrl}}/api/v1/pipelines",
+          "host": [
+            "{{configApiBaseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pipelines"
+          ]
+        },
+        "description": "Define the pipeline routing key (source_system + object_type + event_type -> pipeline_id) a CRM caller would trigger.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pipeline_id\": \"{{demoPipelineId}}\",\n  \"client_id\": \"{{demoClientId}}\",\n  \"version\": \"1.0\",\n  \"source_system\": \"salesforce\",\n  \"object_type\": \"ContractAward\",\n  \"event_type\": \"createDemo\",\n  \"pattern_id\": \"PAT-01\",\n  \"status\": \"active\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5 - Attach Step to Pipeline",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{configApiBaseUrl}}/api/v1/pipeline-steps",
+          "host": [
+            "{{configApiBaseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pipeline-steps"
+          ]
+        },
+        "description": "Attach the step created in request 3 to the pipeline as seq 1.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pipeline_id\": \"{{demoPipelineId}}\",\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"seq\": 1\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6 - Add Field Mappings (bulk, one request for all transform_types)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{configApiBaseUrl}}/api/v1/field-mappings/bulk",
+          "host": [
+            "{{configApiBaseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "field-mappings",
+            "bulk"
+          ]
+        },
+        "description": "Adds all 10 field_mapping rows -- one per implemented transform_type (uppercase, lowercase, titlecase, trim, round, type_cast, replace, split_pick, date_add, date_format) -- in a single request/transaction against POST /api/v1/field-mappings/bulk. Hangs off {{demoStepPk}} from request 3.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"mappings\": [\n    {\n      \"source_path\": \"legalEntityName\",\n      \"target_path\": \"demo_legalEntityName_upper\",\n      \"transform_type\": \"uppercase\",\n      \"sort_order\": 901\n    },\n    {\n      \"source_path\": \"contractTypeName\",\n      \"target_path\": \"demo_contractTypeName_lower\",\n      \"transform_type\": \"lowercase\",\n      \"sort_order\": 902\n    },\n    {\n      \"source_path\": \"owningOrgName\",\n      \"target_path\": \"demo_owningOrgName_title\",\n      \"transform_type\": \"titlecase\",\n      \"sort_order\": 903\n    },\n    {\n      \"source_path\": \"customerPONumber\",\n      \"target_path\": \"demo_customerPONumber_trim\",\n      \"transform_type\": \"trim\",\n      \"sort_order\": 904\n    },\n    {\n      \"source_path\": \"contributionPercent\",\n      \"target_path\": \"demo_contributionPercent_round\",\n      \"transform_type\": \"round\",\n      \"sort_order\": 905,\n      \"transform_params\": \"{\\\"decimals\\\": 2}\"\n    },\n    {\n      \"source_path\": \"orgId\",\n      \"target_path\": \"demo_orgId_typecast_string\",\n      \"transform_type\": \"type_cast\",\n      \"sort_order\": 906,\n      \"transform_params\": \"{\\\"targetType\\\": \\\"string\\\"}\"\n    },\n    {\n      \"source_path\": \"contractNumber\",\n      \"target_path\": \"demo_contractNumber_replace\",\n      \"transform_type\": \"replace\",\n      \"sort_order\": 907,\n      \"transform_params\": \"{\\\"find\\\": \\\"_\\\", \\\"replace\\\": \\\"-\\\"}\"\n    },\n    {\n      \"source_path\": \"headerAttributes.masterContractNumber\",\n      \"target_path\": \"demo_masterContractNumber_splitpick\",\n      \"transform_type\": \"split_pick\",\n      \"sort_order\": 908,\n      \"transform_params\": \"{\\\"delimiter\\\": \\\"-\\\", \\\"index\\\": 1}\"\n    },\n    {\n      \"source_path\": \"startDate\",\n      \"target_path\": \"demo_startDate_dateadd\",\n      \"transform_type\": \"date_add\",\n      \"sort_order\": 909,\n      \"transform_params\": \"{\\\"unit\\\": \\\"months\\\", \\\"amount\\\": 1, \\\"outputFormat\\\": \\\"yyyy-MM-dd\\\"}\"\n    },\n    {\n      \"source_path\": \"headerAttributes.originalContractualDate\",\n      \"target_path\": \"demo_originalContractualDate_reformat\",\n      \"transform_type\": \"date_format\",\n      \"sort_order\": 910,\n      \"transform_params\": \"{\\\"outputFormat\\\": \\\"dd-MM-yyyy\\\"}\"\n    }\n  ]\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6alt - Add Field Mappings one-by-one (original per-row requests, kept for reference)",
+      "item": [
+        {
+          "name": "6alt.1 - Field Mapping: uppercase",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=uppercase on source_path=legalEntityName.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"legalEntityName\",\n  \"target_path\": \"demo_legalEntityName_upper\",\n  \"transform_type\": \"uppercase\",\n  \"sort_order\": 901\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.2 - Field Mapping: lowercase",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=lowercase on source_path=contractTypeName.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"contractTypeName\",\n  \"target_path\": \"demo_contractTypeName_lower\",\n  \"transform_type\": \"lowercase\",\n  \"sort_order\": 902\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.3 - Field Mapping: titlecase",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=titlecase on source_path=owningOrgName.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"owningOrgName\",\n  \"target_path\": \"demo_owningOrgName_title\",\n  \"transform_type\": \"titlecase\",\n  \"sort_order\": 903\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.4 - Field Mapping: trim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=trim on source_path=customerPONumber.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"customerPONumber\",\n  \"target_path\": \"demo_customerPONumber_trim\",\n  \"transform_type\": \"trim\",\n  \"sort_order\": 904\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.5 - Field Mapping: round",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=round on source_path=contributionPercent.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"contributionPercent\",\n  \"target_path\": \"demo_contributionPercent_round\",\n  \"transform_type\": \"round\",\n  \"sort_order\": 905,\n  \"transform_params\": \"{\\\"decimals\\\": 2}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.6 - Field Mapping: type_cast",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=type_cast on source_path=orgId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"orgId\",\n  \"target_path\": \"demo_orgId_typecast_string\",\n  \"transform_type\": \"type_cast\",\n  \"sort_order\": 906,\n  \"transform_params\": \"{\\\"targetType\\\": \\\"string\\\"}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.7 - Field Mapping: replace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=replace on source_path=contractNumber.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"contractNumber\",\n  \"target_path\": \"demo_contractNumber_replace\",\n  \"transform_type\": \"replace\",\n  \"sort_order\": 907,\n  \"transform_params\": \"{\\\"find\\\": \\\"_\\\", \\\"replace\\\": \\\"-\\\"}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.8 - Field Mapping: split_pick",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=split_pick on source_path=headerAttributes.masterContractNumber.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"headerAttributes.masterContractNumber\",\n  \"target_path\": \"demo_masterContractNumber_splitpick\",\n  \"transform_type\": \"split_pick\",\n  \"sort_order\": 908,\n  \"transform_params\": \"{\\\"delimiter\\\": \\\"-\\\", \\\"index\\\": 1}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.9 - Field Mapping: date_add",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=date_add on source_path=startDate.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"startDate\",\n  \"target_path\": \"demo_startDate_dateadd\",\n  \"transform_type\": \"date_add\",\n  \"sort_order\": 909,\n  \"transform_params\": \"{\\\"unit\\\": \\\"months\\\", \\\"amount\\\": 1, \\\"outputFormat\\\": \\\"yyyy-MM-dd\\\"}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6alt.10 - Field Mapping: date_format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/v1/field-mappings",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "field-mappings"
+              ]
+            },
+            "description": "Adds one field_mapping row demonstrating transform_type=date_format on source_path=headerAttributes.originalContractualDate.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"source_path\": \"headerAttributes.originalContractualDate\",\n  \"target_path\": \"demo_originalContractualDate_reformat\",\n  \"transform_type\": \"date_format\",\n  \"sort_order\": 910,\n  \"transform_params\": \"{\\\"outputFormat\\\": \\\"dd-MM-yyyy\\\"}\"\n}"
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Same 10 rows as request 6, added one POST /api/v1/field-mappings call at a time instead of the /bulk endpoint. Kept alongside request 6 as the original per-row approach -- use either, not both, against the same {{demoStepPk}} (the bulk endpoint's uq_field_mapping_step_array_target constraint will 409 on target_path collisions if you run both against the same step)."
+    },
+    {
+      "name": "7 - Run End-to-End Transform (transformation-svc)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{transformSvcBaseUrl}}/transform-pipeline",
+          "host": [
+            "{{transformSvcBaseUrl}}"
+          ],
+          "path": [
+            "transform-pipeline"
+          ]
+        },
+        "description": "The demo payoff. Calls transformation-svc's real entry point (the same one a CRM/Salesforce caller would hit), resolving {{demoPipelineId}} to its attached step(s) and field_mapping rows, and returns the transformed Oracle Fusion contract body -- including every demo_* field showing its transform_type applied.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pipeline_id\": \"{{demoPipelineId}}\",\n  \"source\": {\n    \"eventType\": \"ContractAward\",\n    \"awardId\": \"SF-AWD-2026-0238\",\n    \"orgId\": 300000019976011,\n    \"contractTypeId\": 300000020150131,\n    \"legalEntityName\": \"AeroVironment, Inc.\",\n    \"contractTypeName\": \"Purchase Order\",\n    \"contractNumber\": \"W58RGZ26F0238_X1\",\n    \"startDate\": \"2026-03-20\",\n    \"currencyCode\": \"USD\",\n    \"invOrgName\": \"IMO-Item Master Organization\",\n    \"invOrganizationId\": 300000020021543,\n    \"contributionPercent\": 1,\n    \"customerPONumber\": \"W58RGZ26F0238\",\n    \"owningOrgName\": \"SUAS\",\n    \"netInvoiceFlag\": true,\n    \"buyOrSell\": \"S\",\n    \"headerAttributes\": {\n      \"sfQuoteNumber\": \"Q-02120\",\n      \"sfOpportunityId\": \"OPP-4057\",\n      \"marketSegment\": \"US Army\",\n      \"originalContractualDate\": \"2026-07-23\",\n      \"masterContractNumber\": \"W58RGZ-26-G-0005\",\n      \"contractType\": \"FFP\",\n      \"contractClass\": \"USG-DOD\",\n      \"letterOfCredit\": \"No\",\n      \"creditOrPerformanceGuarantee\": \"No\",\n      \"customerAcceptanceCriteria\": \"Yes\",\n      \"dpasRating\": \"DO_A1\",\n      \"uidRequired\": \"No\",\n      \"casCompliant\": \"Exempt\",\n      \"cageCode\": \"60107\",\n      \"naicsCode\": \"336411\",\n      \"contractAwardBasis\": \"FAR12\",\n      \"certifiedCostOrPricingData\": \"No\",\n      \"dd254Issued\": \"No\",\n      \"subcontractingPlan\": \"No\",\n      \"convertedContract\": \"N\"\n    },\n    \"parties\": [\n      {\n        \"partyRoleCode\": \"CUSTOMER\",\n        \"role\": \"Customer\",\n        \"partyName\": \"US ARMY CONTRACTING COMMAND\"\n      }\n    ],\n    \"lines\": [\n      {\n        \"lineNumber\": \"0001\",\n        \"lineTypeId\": 300000000324971,\n        \"lineTypeName\": \"Item, project\",\n        \"itemName\": \"140000-001\",\n        \"itemDescription\": \"SYSTEM, TOP, M1/2/5 NATO, HD40-LVV+MOD INT, HD40-LVV+RELAY INT, 2AV, VIGILANT SPIRIT, P550\",\n        \"startDate\": \"2026-03-20\",\n        \"endDate\": \"2026-06-24\",\n        \"uomCode\": \"EA\",\n        \"unitOfMeasure\": \"Each\",\n        \"itemQuantity\": 1,\n        \"unitPrice\": 0,\n        \"lineAmount\": 0,\n        \"lineAttributes\": {\n          \"contractLineDueDate\": \"2026-06-24\",\n          \"deliveryDueDate\": \"2026-04-10\",\n          \"glDivision\": \"100\",\n          \"glRevenueAccount\": \"40000\",\n          \"glProductLine\": \"1054\",\n          \"nonProjectRelatedContractLine\": \"No\",\n          \"avalaraTaxCode\": \"|Exempt|\",\n          \"fob\": \"FOB ORIGIN\",\n          \"endCountry\": \"US\",\n          \"freightTerms\": \"NA\",\n          \"shippingInstructions\": \"Notify Maj Townsend one week prior. Army requests we ship-in-place, see language on page 2. WAWF required.\",\n          \"partialShipmentFlag\": \"Yes\",\n          \"customerAcceptanceInspection\": \"WAWF - Origin\"\n        }\n      }\n    ]\n  }\n}"
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "demoClientId",
+      "value": "AV-DEMO"
+    },
+    {
+      "key": "demoTargetId",
+      "value": "AV-DEMO-oracle-fusion-contracts"
+    },
+    {
+      "key": "demoPipelineId",
+      "value": "award-to-oracle-contract-demo-v1"
+    },
+    {
+      "key": "demoStepPk",
+      "value": ""
+    }
+  ]
+}

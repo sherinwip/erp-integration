@@ -54,3 +54,8 @@ class FieldMappingRead(FieldMappingBase):
 
     mapping_pk: int
     step_pk: int
+
+
+class FieldMappingBulkCreate(BaseModel):
+    step_pk: int
+    mappings: list[FieldMappingBase] = Field(..., min_length=1)
