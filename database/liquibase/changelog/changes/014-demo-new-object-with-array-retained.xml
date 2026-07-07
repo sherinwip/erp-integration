@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Demo: a brand-new nested object (DemoAwardSummary) added to the
+        transform_payload() output for step_pk=3, alongside the pre-existing
+        ContractLine / ContractParty repeating arrays and ContractHeaderFlexfieldVA
+        singleton array (changeset 009), shows adding a new target object
+        does not disturb any array already produced by other field_mapping rows
+        on the same step. array_source_path is a top-level source key
+        (headerAttributes) reused only as a scope for these new fields;
+        is_singleton_array=true wraps the one built object into a 1-element
+        DemoAwardSummary[] array per the engine's singleton-array convention
+        (same convention ContractHeaderFlexfieldVA already uses).
+    -->
+    <changeSet id="014-demo-new-object-with-array-retained" author="erp-integration" context="demo">
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoAwardSummary"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="__literal.demo-new-object"/>
+            <column name="target_path" value="summaryKind"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoAwardSummary"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="marketSegment"/>
+            <column name="target_path" value="marketSegment"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoAwardSummary"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="masterContractNumber"/>
+            <column name="target_path" value="masterContractNumber"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>
