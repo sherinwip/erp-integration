@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Same demo as changeset 014 (DemoAwardSummary on step_pk=3), applied to
+        step_pk=17 (sawan-award-to-oracle-contract-demo-v1's create-oracle-contract-demo
+        step): a brand-new singleton-object output built from headerAttributes,
+        added alongside that step's existing flat demo_* transform-showcase rows
+        (changeset-equivalent of 013, seeded separately for this client/step),
+        shows the same "new target object in the response" capability on a
+        second, independently-onboarded step.
+    -->
+    <changeSet id="015-demo-new-object-step17" author="erp-integration" context="demo">
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="17"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoAwardSummary"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="__literal.demo-new-object"/>
+            <column name="target_path" value="summaryKind"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="17"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoAwardSummary"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="marketSegment"/>
+            <column name="target_path" value="marketSegment"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="17"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoAwardSummary"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="source_path" value="masterContractNumber"/>
+            <column name="target_path" value="masterContractNumber"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

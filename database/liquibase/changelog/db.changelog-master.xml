@@ -19,5 +19,6 @@
     <include file="changes/012-update-transform-payload-apply-transforms.xml" relativeToChangelogFile="true"/>
     <include file="changes/013-demo-transform-showcase.xml" relativeToChangelogFile="true"/>
     <include file="changes/014-demo-new-object-with-array-retained.xml" relativeToChangelogFile="true"/>
+    <include file="changes/015-demo-new-object-step17.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>
