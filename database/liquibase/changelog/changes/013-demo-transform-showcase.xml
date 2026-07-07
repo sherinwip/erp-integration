@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Demo-only field_mapping rows on step_pk=3 (create-oracle-contract-full),
+        one per transform_type in erp_transform.transform.SUPPORTED_TRANSFORM_TYPES
+        that changeset 009's real mappings never exercise (only date_format was
+        previously used, and always with an identity yyyy-MM-dd to yyyy-MM-dd param).
+        target_path is prefixed demo_ so these land alongside, not over, the real
+        Oracle field names, safe to run transform_payload/transform_pipeline
+        against and see every transform_type fire at least once.
+    -->
+    <changeSet id="013-demo-transform-showcase" author="erp-integration" context="demo">
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="legalEntityName"/>
+            <column name="target_path" value="demo_legalEntityName_upper"/>
+            <column name="transform_type" value="uppercase"/>
+            <column name="sort_order" valueNumeric="900"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="contractTypeName"/>
+            <column name="target_path" value="demo_contractTypeName_lower"/>
+            <column name="transform_type" value="lowercase"/>
+            <column name="sort_order" valueNumeric="901"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="owningOrgName"/>
+            <column name="target_path" value="demo_owningOrgName_title"/>
+            <column name="transform_type" value="titlecase"/>
+            <column name="sort_order" valueNumeric="902"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="customerPONumber"/>
+            <column name="target_path" value="demo_customerPONumber_trim"/>
+            <column name="transform_type" value="trim"/>
+            <column name="sort_order" valueNumeric="903"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="contributionPercent"/>
+            <column name="target_path" value="demo_contributionPercent_round"/>
+            <column name="transform_type" value="round"/>
+            <column name="transform_params" value="{&quot;decimals&quot;:2}"/>
+            <column name="sort_order" valueNumeric="904"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="orgId"/>
+            <column name="target_path" value="demo_orgId_typecast_string"/>
+            <column name="transform_type" value="type_cast"/>
+            <column name="transform_params" value="{&quot;targetType&quot;:&quot;string&quot;}"/>
+            <column name="sort_order" valueNumeric="905"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="contractNumber"/>
+            <column name="target_path" value="demo_contractNumber_replace"/>
+            <column name="transform_type" value="replace"/>
+            <column name="transform_params" value="{&quot;find&quot;:&quot;_&quot;,&quot;replace&quot;:&quot;-&quot;}"/>
+            <column name="sort_order" valueNumeric="906"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="headerAttributes.masterContractNumber"/>
+            <column name="target_path" value="demo_masterContractNumber_splitpick"/>
+            <column name="transform_type" value="split_pick"/>
+            <column name="transform_params" value="{&quot;delimiter&quot;:&quot;-&quot;,&quot;index&quot;:1}"/>
+            <column name="sort_order" valueNumeric="907"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="startDate"/>
+            <column name="target_path" value="demo_startDate_dateadd"/>
+            <column name="transform_type" value="date_add"/>
+            <column name="transform_params" value="{&quot;unit&quot;:&quot;months&quot;,&quot;amount&quot;:1,&quot;outputFormat&quot;:&quot;yyyy-MM-dd&quot;}"/>
+            <column name="sort_order" valueNumeric="908"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="source_path" value="headerAttributes.originalContractualDate"/>
+            <column name="target_path" value="demo_originalContractualDate_reformat"/>
+            <column name="transform_type" value="date_format"/>
+            <column name="transform_params" value="{&quot;outputFormat&quot;:&quot;dd-MM-yyyy&quot;}"/>
+            <column name="sort_order" valueNumeric="909"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>
