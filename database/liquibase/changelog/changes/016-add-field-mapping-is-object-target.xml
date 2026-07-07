@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Adds a plain-nested-object output shape alongside changeset 008's
+        singleton array (is_singleton_array=true always wraps the built object
+        in a 1-element target array, e.g. ContractHeaderFlexfieldVA[0]). Some
+        target schemas want that same one-object-per-scope build written
+        unwrapped as a bare object instead (e.g. "DemoContactInfo": {...} not
+        "DemoContactInfo": [{...}]). is_object_target only has meaning when
+        is_singleton_array is also true; transform_payload() (changeset 017)
+        checks it to decide whether to skip the array wrap.
+    -->
+    <changeSet id="016-add-field-mapping-is-object-target" author="erp-integration">
+        <addColumn tableName="field_mapping">
+            <column name="is_object_target" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <sql>
+            COMMENT ON COLUMN field_mapping.is_object_target IS
+                'When true together with is_singleton_array, the built object is written unwrapped (a plain nested object) instead of wrapped in a 1-element array.';
+        </sql>
+
+        <rollback>
+            <dropColumn tableName="field_mapping" columnName="is_object_target"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

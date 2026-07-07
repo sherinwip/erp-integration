@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Demo: DemoContactInfo on step_pk=3 and step_pk=17, showing the
+        is_object_target column (changeset 016) added to transform_payload()
+        (changeset 017). Same singleton grouping as DemoAwardSummary
+        (changeset 014/015, an array-wrapped object), but is_object_target=true
+        here means the built object is written as a plain nested object
+        ("DemoContactInfo": {...}) instead of an array
+        ("DemoAwardSummary": [{...}]).
+    -->
+    <changeSet id="018-demo-object-target-showcase-step3" author="erp-integration" context="demo">
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoContactInfo"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="is_object_target" valueBoolean="true"/>
+            <column name="source_path" value="__literal.demo-single-object"/>
+            <column name="target_path" value="summaryKind"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoContactInfo"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="is_object_target" valueBoolean="true"/>
+            <column name="source_path" value="contractClass"/>
+            <column name="target_path" value="contractClass"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="3"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoContactInfo"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="is_object_target" valueBoolean="true"/>
+            <column name="source_path" value="dpasRating"/>
+            <column name="target_path" value="dpasRating"/>
+            <column name="sort_order" valueNumeric="3"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="018-demo-object-target-showcase-step17" author="erp-integration" context="demo">
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="17"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoContactInfo"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="is_object_target" valueBoolean="true"/>
+            <column name="source_path" value="__literal.demo-single-object"/>
+            <column name="target_path" value="summaryKind"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <insert tableName="field_mapping">
+            <column name="step_pk" valueNumeric="17"/>
+            <column name="array_source_path" value="headerAttributes"/>
+            <column name="array_target_path" value="DemoContactInfo"/>
+            <column name="is_singleton_array" valueBoolean="true"/>
+            <column name="is_object_target" valueBoolean="true"/>
+            <column name="source_path" value="contractClass"/>
+            <column name="target_path" value="contractClass"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

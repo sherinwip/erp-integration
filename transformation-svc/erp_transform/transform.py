@@ -10,8 +10,13 @@ literal/lookup support) since editing SQL is slower to iterate on than Python.
 
 Row shapes (see FieldMapping.array_source_path/array_target_path):
   1. Flat scalar: array_target_path == "" -> field written on the result root.
-  2. Singleton array: is_singleton_array=True -> one source object wrapped into
-     a 1-element target array (e.g. headerAttributes -> ContractHeaderFlexfieldVA[0]).
+  2. Singleton array: is_singleton_array=True, is_object_target=False -> one
+     source object wrapped into a 1-element target array (e.g. headerAttributes
+     -> ContractHeaderFlexfieldVA[0]).
+  2b. Singleton object: is_singleton_array=True, is_object_target=True -> same
+     grouping/build as #2, but written unwrapped as a plain nested object
+     instead of a 1-element array (e.g. headerAttributes -> DemoContactInfo,
+     not DemoContactInfo[0]).
   3. Repeating array: source is a real array -> one target array element per
      source item (e.g. parties[] -> ContractParty[], lines[] -> ContractLine[]).
   Nested singleton-within-repeating (line-level flexfield) is handled inside
@@ -236,7 +241,8 @@ def transform_payload(source: dict, mappings: list[FieldMapping]) -> dict:
             built = {}
             for m in group_mappings:
                 _set_path(built, m.target_path, _resolve_value(scope, m))
-            result[array_target_path] = [built]
+            is_object_target = group_mappings[0].is_object_target
+            result[array_target_path] = built if is_object_target else [built]
             continue
 
         # Repeating array.

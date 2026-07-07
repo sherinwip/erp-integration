@@ -30,6 +30,7 @@ class FieldMappingBase(BaseModel):
     array_source_path: str = Field("", max_length=200)
     array_target_path: str = Field("", max_length=200)
     is_singleton_array: bool = False
+    is_object_target: bool = False
 
 
 class FieldMappingCreate(FieldMappingBase):
@@ -47,6 +48,7 @@ class FieldMappingUpdate(BaseModel):
     array_source_path: Optional[str] = Field(None, max_length=200)
     array_target_path: Optional[str] = Field(None, max_length=200)
     is_singleton_array: Optional[bool] = None
+    is_object_target: Optional[bool] = None
 
 
 class FieldMappingRead(FieldMappingBase):

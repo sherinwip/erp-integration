@@ -24,6 +24,7 @@ def _fm(**overrides):
         array_source_path="",
         array_target_path="",
         is_singleton_array=False,
+        is_object_target=False,
     )
     defaults.update(overrides)
     return FieldMapping(**defaults)

@@ -74,6 +74,7 @@ class FieldMapping:
     array_source_path: str
     array_target_path: str
     is_singleton_array: bool
+    is_object_target: bool
 
 
 @contextmanager
@@ -171,7 +172,8 @@ def get_field_mappings(conn, step_pk: int) -> list[FieldMapping]:
             """
             SELECT mapping_pk, step_pk, source_path, target_path, transform_type,
                    transform_params, default_value, is_required, sort_order,
-                   array_source_path, array_target_path, is_singleton_array
+                   array_source_path, array_target_path, is_singleton_array,
+                   is_object_target
             FROM field_mapping
             WHERE step_pk = %s
             ORDER BY sort_order

@@ -138,5 +138,6 @@ class FieldMapping(Base):
     array_source_path = Column(String(200), nullable=False, default="")
     array_target_path = Column(String(200), nullable=False, default="")
     is_singleton_array = Column(Boolean, nullable=False, default=False)
+    is_object_target = Column(Boolean, nullable=False, default=False)
 
     step = relationship("Step", back_populates="field_mappings")
