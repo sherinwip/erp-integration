@@ -1,0 +1,26 @@
+FROM eclipse-temurin:21-jre-jammy
+
+RUN apt-get update && \
+    apt-get install -y wget unzip && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LIQUIBASE_VERSION=5.0.3
+
+RUN wget https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.zip \
+    && unzip liquibase-${LIQUIBASE_VERSION}.zip -d /opt/liquibase \
+    && rm liquibase-${LIQUIBASE_VERSION}.zip
+
+ENV PATH="/opt/liquibase:${PATH}"
+
+COPY drivers/postgresql-42.7.11.jar /opt/liquibase/lib/
+COPY liquibase/changelog /opt/liquibase/migrations/changelog
+
+WORKDIR /opt/liquibase/migrations
+
+ENTRYPOINT liquibase \
+  --changeLogFile=changelog/db.changelog-master.xml \
+  --url="${LB_URL}" \
+  --username="${LB_USERNAME}" \
+  --password="${LB_PASSWORD}" \
+  --driver=org.postgresql.Driver \
+  update
