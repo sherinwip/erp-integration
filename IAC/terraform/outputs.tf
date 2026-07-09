@@ -9,3 +9,7 @@ output "db_credentials_secret_arn" {
 output "default_vpc_id" {
   value = data.aws_vpc.default.id
 }
+
+output "ecr_repository_url" {
+  value = aws_ecr_repository.config_api.repository_url
+}
