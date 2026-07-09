@@ -171,7 +171,7 @@ git commit -m "Add standalone Liquibase runner image for RDS migrations"
 - Create: `IAC/terraform/outputs.tf`
 
 **Interfaces:**
-- Produces: `aws_db_instance.config_db` (RDS endpoint), `aws_secretsmanager_secret.db_credentials` (ARN + JSON containing `host`, `port`, `dbname`, `username`, `password`), `data.aws_vpc.default`, `data.aws_subnets.default_public` — consumed by Task 4 (ECS/ECR) and Task 5 (ALB/SGs).
+- Produces: `aws_db_instance.config_db` (RDS endpoint), `aws_secretsmanager_secret.db_credentials` (ARN + JSON containing `host`, `port`, `dbname`, `username`, `password`), `data.aws_vpc.default`, `data.aws_subnets.default` — consumed by Task 4 (ECS/ECR) and Task 5 (ALB/SGs).
 
 - [ ] **Step 1: Write versions.tf**
 
