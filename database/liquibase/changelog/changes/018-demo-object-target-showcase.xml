@@ -47,27 +47,9 @@
         </insert>
     </changeSet>
 
-    <changeSet id="018-demo-object-target-showcase-step17" author="erp-integration" context="demo">
-        <insert tableName="field_mapping">
-            <column name="step_pk" valueNumeric="17"/>
-            <column name="array_source_path" value="headerAttributes"/>
-            <column name="array_target_path" value="DemoContactInfo"/>
-            <column name="is_singleton_array" valueBoolean="true"/>
-            <column name="is_object_target" valueBoolean="true"/>
-            <column name="source_path" value="__literal.demo-single-object"/>
-            <column name="target_path" value="summaryKind"/>
-            <column name="sort_order" valueNumeric="1"/>
-        </insert>
-        <insert tableName="field_mapping">
-            <column name="step_pk" valueNumeric="17"/>
-            <column name="array_source_path" value="headerAttributes"/>
-            <column name="array_target_path" value="DemoContactInfo"/>
-            <column name="is_singleton_array" valueBoolean="true"/>
-            <column name="is_object_target" valueBoolean="true"/>
-            <column name="source_path" value="contractClass"/>
-            <column name="target_path" value="contractClass"/>
-            <column name="sort_order" valueNumeric="2"/>
-        </insert>
-    </changeSet>
+    <!-- 018-demo-object-target-showcase-step17 intentionally excluded: references
+         step_pk=17, which was never seeded in this changelog (see the exclusion
+         note for changeset 015 in db.changelog-master.xml). Would violate
+         fk_field_mapping_step until a real step_pk=17 fixture exists. -->
 
 </databaseChangeLog>

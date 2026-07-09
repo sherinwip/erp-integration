@@ -19,7 +19,11 @@
     <include file="changes/012-update-transform-payload-apply-transforms.xml" relativeToChangelogFile="true"/>
     <include file="changes/013-demo-transform-showcase.xml" relativeToChangelogFile="true"/>
     <include file="changes/014-demo-new-object-with-array-retained.xml" relativeToChangelogFile="true"/>
-    <include file="changes/015-demo-new-object-step17.xml" relativeToChangelogFile="true"/>
+    <!-- 015-demo-new-object-step17.xml intentionally excluded: references step_pk=17,
+         which belongs to a "sawan-award-to-oracle-contract-demo-v1" client/target/step
+         that was never seeded anywhere in this changelog. Blocks all changesets after
+         it (FK violation on field_mapping.step_pk) until a real step_pk=17 fixture is
+         provided and this changeset is re-enabled. -->
     <include file="changes/016-add-field-mapping-is-object-target.xml" relativeToChangelogFile="true"/>
     <include file="changes/017-update-transform-payload-object-target.xml" relativeToChangelogFile="true"/>
     <include file="changes/018-demo-object-target-showcase.xml" relativeToChangelogFile="true"/>
