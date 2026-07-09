@@ -13,3 +13,7 @@ output "default_vpc_id" {
 output "ecr_repository_url" {
   value = aws_ecr_repository.config_api.repository_url
 }
+
+output "alb_dns_name" {
+  value = aws_lb.config_api.dns_name
+}
