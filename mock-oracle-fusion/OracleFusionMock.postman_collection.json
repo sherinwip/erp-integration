@@ -1,0 +1,258 @@
+{
+  "info": {
+    "_postman_id": "4f4e55f8-bfa8-4f44-8b7d-111111111111",
+    "name": "Oracle Fusion Mock APIs",
+    "description": "Mock Oracle Fusion REST APIs for Integration Testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:9080"
+    }
+  ],
+  "item": [
+    {
+      "name": "Contract Award",
+      "item": [
+        {
+          "name": "Create Contract Award",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractAwards",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AwardNumber\": \"AWD-1001\",\n  \"ContractName\": \"Cloud Modernization\",\n  \"Customer\": \"NASA\",\n  \"Amount\": 500000,\n  \"Currency\": \"USD\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Contract Award",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractAwards/1001"
+          }
+        },
+        {
+          "name": "Update Contract Award",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractAwards/1001",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Amount\": 650000\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contract Modification",
+      "item": [
+        {
+          "name": "Create Modification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractModifications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ModificationNumber\": \"MOD-001\",\n  \"AwardNumber\": \"AWD-1001\",\n  \"Reason\": \"Scope Increase\",\n  \"Amount\": 15000\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Modification",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractModifications/1"
+          }
+        },
+        {
+          "name": "Update Modification",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractModifications/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Reason\": \"Budget Revision\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contract Revenue",
+      "item": [
+        {
+          "name": "Create Revenue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractRevenue",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AwardNumber\": \"AWD-1001\",\n  \"RevenueAmount\": 100000,\n  \"RevenueDate\": \"2026-07-12\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Revenue",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractRevenue/1"
+          }
+        },
+        {
+          "name": "Update Revenue",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractRevenue/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"RevenueAmount\": 120000\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contract Actuals",
+      "item": [
+        {
+          "name": "Create Actual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractActuals",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AwardNumber\": \"AWD-1001\",\n  \"ActualCost\": 90000,\n  \"ActualDate\": \"2026-07-12\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Actual",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractActuals/1"
+          }
+        },
+        {
+          "name": "Update Actual",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/contractActuals/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ActualCost\": 95000\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "CLIN",
+      "item": [
+        {
+          "name": "Create CLIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/clins",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"CLINNumber\": \"0001\",\n  \"Description\": \"Software Development\",\n  \"Quantity\": 10,\n  \"UnitPrice\": 10000\n}"
+            }
+          }
+        },
+        {
+          "name": "Get CLIN",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/clins/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "SIN",
+      "item": [
+        {
+          "name": "Create SIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/sins",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"SINNumber\": \"54151S\",\n  \"Description\": \"Information Technology Professional Services\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get SIN",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/fscmRestApi/resources/latest/sins/1"
+          }
+        }
+      ]
+    }
+  ]
+}
