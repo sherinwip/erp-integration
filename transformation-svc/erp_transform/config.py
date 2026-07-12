@@ -7,6 +7,8 @@ In a Step Functions/Lambda deployment, DB_* would come from Lambda environment
 variables (populated from Secrets Manager/SSM at deploy time), not from a
 .env file or hardcoded default.
 """
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 
