@@ -1,0 +1,15 @@
+graph LR
+    client["client<br/>PK client_id<br/>client_name<br/>is_active<br/>created_at"]
+    target["target<br/>PK target_id<br/>FK client_id<br/>target_name<br/>base_url<br/>auth_type<br/>credential_ref<br/>default_headers<br/>is_active<br/>updated_at"]
+    step["step<br/>PK step_pk<br/>FK client_id<br/>FK target_id<br/>step_name<br/>method<br/>path<br/>query_params<br/>headers<br/>extract<br/>on_not_found<br/>on_multiple_results<br/>rollback_method<br/>rollback_path<br/>is_active<br/>updated_at"]
+    pipeline["pipeline<br/>PK pipeline_id<br/>FK client_id<br/>version<br/>source_system<br/>object_type<br/>event_type<br/>pattern_id<br/>status<br/>retry_max_attempts<br/>retry_backoff<br/>retry_backoff_base_ms<br/>retry_on_status_codes<br/>created_at<br/>updated_at"]
+    pipeline_step["pipeline_step<br/>PK pipeline_step_pk<br/>FK pipeline_id<br/>FK step_pk<br/>seq"]
+    field_mapping["field_mapping<br/>PK mapping_pk<br/>FK step_pk<br/>source_path<br/>target_path<br/>transform_type<br/>transform_params<br/>default_value<br/>is_required<br/>sort_order"]
+
+    client -->|"1:N"| target
+    client -->|"1:N"| step
+    client -->|"1:N"| pipeline
+    target -->|"1:N"| step
+    pipeline -->|"1:N"| pipeline_step
+    step -->|"1:N"| pipeline_step
+    step -->|"1:N"| field_mapping
