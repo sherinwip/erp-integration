@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  localstack:
+    image: localstack/localstack:3
+    container_name: erp-integration-localstack
+    restart: unless-stopped
+
+    environment:
+      SERVICES: secretsmanager
+      DEFAULT_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+
+    ports:
+      - "4566:4566"
+
+    volumes:
+      - erp_integration_localstack:/var/lib/localstack
+
+      # Initialization script
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh:ro
+
+      # Secret JSON
+      - ./localstack/oracle-ewnj-test-creds-demo.json:/etc/localstack/init/oracle-ewnj-test-creds-demo.json:ro
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  erp_integration_localstack:
+    driver: local
