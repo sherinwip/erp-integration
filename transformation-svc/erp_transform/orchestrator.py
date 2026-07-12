@@ -12,11 +12,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from typing import Optional
 
 from . import auth, db, send, transform
 from .config import get_db_config
 from .extract import apply_extract_rules
+
+logger = logging.getLogger("transformation_svc.orchestrator")
 
 
 def transform_only(step_pk: int, source: dict) -> dict:
@@ -129,13 +132,32 @@ def run_step(step_pk: int, source: dict, send_request: bool = False) -> dict:
     }
 
     if send_request:
+        logger.info(
+            "step.execution.starting step_name=%s target_name=%s method=%s",
+            step.step_name,
+            target.target_name,
+            step.method,
+        )
         credential = auth.get_credential(target)
+        logger.info(
+            "step.execution.before_send step_name=%s target_name=%s method=%s",
+            step.step_name,
+            target.target_name,
+            step.method,
+        )
         step_result = send.execute_step(
             step=step,
             target=target,
             credential=credential,
             body=transformed_body,
             source=source,
+        )
+        logger.info(
+            "step.execution.after_receive step_name=%s target_name=%s method=%s status_code=%s",
+            step.step_name,
+            target.target_name,
+            step.method,
+            step_result.status_code,
         )
         result["sent"] = True
         result["response"] = {
@@ -187,11 +209,29 @@ def run_pipeline(pipeline_id: str, source: dict) -> dict:
                 for ps in pipeline_steps
             }
 
+        logger.info(
+            "pipeline.execution.plan run_id=%s pipeline_id=%s total_steps=%s step_names=%s",
+            run.run_id,
+            pipeline_id,
+            len(pipeline_steps),
+            [ps.step.step_name for ps in pipeline_steps],
+        )
+
         with db.get_connection() as conn:
             for ps in pipeline_steps:
                 step = ps.step
                 target = targets_by_id[step.target_id]
                 mappings = mappings_by_step[step.step_pk]
+
+                logger.info(
+                    "step.execution.starting run_id=%s pipeline_id=%s seq=%s step_name=%s target_name=%s method=%s",
+                    run.run_id,
+                    pipeline_id,
+                    ps.seq,
+                    step.step_name,
+                    target.target_name,
+                    step.method,
+                )
 
                 scoped_source = dict(source)
                 scoped_source["steps"] = steps_scope
@@ -200,6 +240,15 @@ def run_pipeline(pipeline_id: str, source: dict) -> dict:
                 )
 
                 credential = auth.get_credential(target, extracted=extracted_scope)
+                logger.info(
+                    "step.execution.before_send run_id=%s pipeline_id=%s seq=%s step_name=%s target_name=%s method=%s",
+                    run.run_id,
+                    pipeline_id,
+                    ps.seq,
+                    step.step_name,
+                    target.target_name,
+                    step.method,
+                )
                 step_result = send.execute_step(
                     step=step,
                     target=target,
@@ -208,6 +257,16 @@ def run_pipeline(pipeline_id: str, source: dict) -> dict:
                     source=source,
                     previous_steps=steps_scope,
                     extracted=extracted_scope,
+                )
+                logger.info(
+                    "step.execution.after_receive run_id=%s pipeline_id=%s seq=%s step_name=%s target_name=%s method=%s status_code=%s",
+                    run.run_id,
+                    pipeline_id,
+                    ps.seq,
+                    step.step_name,
+                    target.target_name,
+                    step.method,
+                    step_result.status_code,
                 )
 
                 steps_scope[step.step_name] = transformed_body
@@ -233,6 +292,11 @@ def run_pipeline(pipeline_id: str, source: dict) -> dict:
             "steps": step_results,
         }
     except Exception:
+        logger.exception(
+            "run_pipeline.failed pipeline_id=%s run_id=%s",
+            pipeline_id,
+            run.run_id,
+        )
         with db.get_connection() as conn:
             db.update_pipeline_run_status(conn, run.run_id, "failed")
         return {

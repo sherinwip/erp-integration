@@ -30,9 +30,12 @@ This app is local-dev only -- not what ships to Step Functions. It exists
 so Postman has something to hit; the actual portable logic lives in
 erp_transform/.
 """
+import logging
+import time
+import uuid
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -46,6 +49,53 @@ app = FastAPI(
         "audits the run; /transform is a dry-run, single-step debugging route."
     ),
 )
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logger = logging.getLogger("transformation_svc")
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    request_id = uuid.uuid4().hex[:8]
+    start = time.perf_counter()
+    method = request.method
+    path = request.url.path
+    client_host = request.client.host if request.client else "unknown"
+
+    logger.info(
+        "request.start id=%s method=%s path=%s client=%s",
+        request_id,
+        method,
+        path,
+        client_host,
+    )
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = (time.perf_counter() - start) * 1000
+        logger.exception(
+            "request.error id=%s method=%s path=%s duration_ms=%.2f",
+            request_id,
+            method,
+            path,
+            duration_ms,
+        )
+        raise
+
+    duration_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "request.end id=%s method=%s path=%s status=%s duration_ms=%.2f",
+        request_id,
+        method,
+        path,
+        response.status_code,
+        duration_ms,
+    )
+    return response
 
 
 class TransformPipelineRequest(BaseModel):
@@ -69,7 +119,7 @@ class StepResult(BaseModel):
 class RunStepResult(BaseModel):
     seq: int
     step_name: str
-    status_code: Optional[int]
+    status_code: Optional[int] = None
     response_body: Any
 
 
@@ -93,8 +143,10 @@ def transform_pipeline_route(body: TransformPipelineRequest):
     try:
         return run_pipeline(body.pipeline_id, body.source)
     except ValueError as e:
+        logger.warning("transform_pipeline.not_found pipeline_id=%s error=%s", body.pipeline_id, e)
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        logger.exception("transform_pipeline.failed pipeline_id=%s", body.pipeline_id)
         raise HTTPException(status_code=500, detail=f"transform failed: {e}")
 
 
@@ -105,8 +157,10 @@ def transform_route(body: TransformStepRequest):
     try:
         return transform_only(body.step_pk, body.source)
     except ValueError as e:
+        logger.warning("transform.not_found step_pk=%s error=%s", body.step_pk, e)
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        logger.exception("transform.failed step_pk=%s", body.step_pk)
         raise HTTPException(status_code=500, detail=f"transform failed: {e}")
 
 

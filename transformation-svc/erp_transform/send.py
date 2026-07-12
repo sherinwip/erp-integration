@@ -7,6 +7,7 @@ per-target code.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Any, Optional
 
 import requests
@@ -14,6 +15,50 @@ import requests
 from .auth import Credential
 from .config import get_http_timeout_seconds
 from .db import Step, Target
+
+logger = logging.getLogger("transformation_svc.send")
+
+_SENSITIVE_HEADERS = {
+    "authorization",
+    "x-api-key",
+    "api-key",
+    "cookie",
+    "set-cookie",
+    "x-auth-token",
+}
+
+
+def _mask_headers(headers: dict[str, Any]) -> dict[str, Any]:
+    masked: dict[str, Any] = {}
+    for key, value in headers.items():
+        if key.lower() in _SENSITIVE_HEADERS:
+            masked[key] = "***REDACTED***"
+        else:
+            masked[key] = value
+    return masked
+
+
+def _render_map(
+    values: Optional[dict],
+    source: dict,
+    previous_steps: dict,
+    extracted: dict,
+) -> dict:
+    rendered: dict = {}
+    for key, value in (values or {}).items():
+        rendered[key] = _render_template(str(value), source, previous_steps, extracted)
+    return rendered
+
+
+def _parse_response_body(resp: requests.Response) -> Any:
+    try:
+        return resp.json()
+    except ValueError:
+        return resp.text
+
+
+def _json_body_for_method(method: str, body: Optional[dict]) -> Optional[dict]:
+    return body if method in ("POST", "PUT", "PATCH") else None
 
 
 @dataclass(frozen=True)
@@ -81,30 +126,43 @@ def execute_step(
     path = _render_template(step.path, source, previous_steps, extracted)
     url = target.base_url.rstrip("/") + "/" + path.lstrip("/")
 
-    query_params = {}
-    if step.query_params:
-        for key, value in step.query_params.items():
-            query_params[key] = _render_template(str(value), source, previous_steps, extracted)
+    query_params = _render_map(step.query_params, source, previous_steps, extracted)
 
     headers = dict(target.default_headers or {})
-    if step.headers:
-        for key, value in step.headers.items():
-            headers[key] = _render_template(str(value), source, previous_steps, extracted)
+    headers.update(_render_map(step.headers, source, previous_steps, extracted))
     headers[credential.header_name] = credential.header_value
+
+    safe_headers = _mask_headers(headers)
+    logger.info(
+        "step.request.before_send step_name=%s method=%s url=%s query=%s headers=%s body=%s",
+        step.step_name,
+        step.method,
+        url,
+        query_params or {},
+        safe_headers,
+        body,
+    )
 
     resp = requests.request(
         method=step.method,
         url=url,
         params=query_params or None,
-        json=body if step.method in ("POST", "PUT", "PATCH") else None,
+        json=_json_body_for_method(step.method, body),
         headers=headers,
         timeout=get_http_timeout_seconds(),
     )
 
-    try:
-        response_body = resp.json()
-    except ValueError:
-        response_body = resp.text
+    response_body = _parse_response_body(resp)
+
+    logger.info(
+        "step.response.after_receive step_name=%s method=%s url=%s status_code=%s headers=%s body=%s",
+        step.step_name,
+        step.method,
+        resp.request.url or url,
+        resp.status_code,
+        _mask_headers(dict(resp.headers)),
+        response_body,
+    )
 
     return StepResult(
         status_code=resp.status_code,
