@@ -127,6 +127,7 @@ class TransformPipelineResponse(BaseModel):
     pipeline_id: str
     run_id: str
     status: str
+    error: Optional[str] = None
     steps: list[RunStepResult]
 
 

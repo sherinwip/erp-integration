@@ -291,7 +291,7 @@ def run_pipeline(pipeline_id: str, source: dict) -> dict:
             "status": "completed",
             "steps": step_results,
         }
-    except Exception:
+    except Exception as e:
         logger.exception(
             "run_pipeline.failed pipeline_id=%s run_id=%s",
             pipeline_id,
@@ -303,5 +303,6 @@ def run_pipeline(pipeline_id: str, source: dict) -> dict:
             "pipeline_id": pipeline_id,
             "run_id": run.run_id,
             "status": "failed",
+            "error": f"{type(e).__name__}: {e}",
             "steps": step_results,
         }
