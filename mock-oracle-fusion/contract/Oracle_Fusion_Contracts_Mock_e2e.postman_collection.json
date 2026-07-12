@@ -1,0 +1,196 @@
+{
+  "info": {
+    "_postman_id": "310aff16-5a94-4f06-8dee-604d0da09184",
+    "name": "Oracle Fusion Contracts Mock",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "3420702"
+  },
+  "item": [
+    {
+      "name": "OAuth Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"demo\",\n  \"client_secret\": \"demo\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/oauth2/v1/token",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "oauth2",
+            "v1",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Contract",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ContractNumber\": \"C-1001\",\n  \"ContractName\": \"Sample Contract\",\n  \"BusinessUnitName\": \"Vision Operations\",\n  \"StartDate\": \"2026-07-12\",\n  \"EndDate\": \"2027-07-11\",\n  \"Status\": \"DRAFT\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/fscmRestApi/resources/11.13.18.05/contracts",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fscmRestApi",
+            "resources",
+            "11.13.18.05",
+            "contracts"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "List Contracts",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fscmRestApi/resources/11.13.18.05/contracts",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fscmRestApi",
+            "resources",
+            "11.13.18.05",
+            "contracts"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Contract",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fscmRestApi/resources/11.13.18.05/contracts/300100000000002",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fscmRestApi",
+            "resources",
+            "11.13.18.05",
+            "contracts",
+            "300100000000002"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Patch Contract",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Status\": \"ACTIVE\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/fscmRestApi/resources/11.13.18.05/contracts/300100000000002",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fscmRestApi",
+            "resources",
+            "11.13.18.05",
+            "contracts",
+            "300100000000002"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Contract",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/fscmRestApi/resources/11.13.18.05/contracts/300100000000002",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "fscmRestApi",
+            "resources",
+            "11.13.18.05",
+            "contracts",
+            "300100000000002"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token",
+      "value": "sample-bearer"
+    },
+    {
+      "key": "contractId",
+      "value": "300100000000001"
+    }
+  ]
+}
