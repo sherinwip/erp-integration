@@ -13,9 +13,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import Optional
 
 import boto3
-import requests
 
 from .config import get_http_timeout_seconds, get_secrets_manager_endpoint_url
 from .db import Target
@@ -57,26 +57,18 @@ def _get_secret(credential_ref: str) -> dict:
     return json.loads(resp["SecretString"])
 
 
-def _oauth2_client_credentials(target: Target) -> Credential:
-    secret = _get_secret(target.credential_ref)
-    token_url = secret["tokenUrl"]
-    client_id = secret["clientId"]
-    client_secret = secret["clientSecret"]
-    scope = secret.get("scope")
-
-    data = {"grant_type": "client_credentials"}
-    if scope:
-        data["scope"] = scope
-
-    resp = requests.post(
-        token_url,
-        data=data,
-        auth=(client_id, client_secret),
-        headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
-        timeout=get_http_timeout_seconds(),
-    )
-    resp.raise_for_status()
-    token = resp.json()["access_token"]
+def _oauth2_from_extracted(target: Target, extracted: dict) -> Credential:
+    """oauth2 credentials are no longer fetched inline here -- they come from
+    a pipeline step (e.g. `fetchToken`) that ran earlier in the same
+    pipeline_run and had `access_token` as one of its extract rules. See
+    erp_transform.extract and orchestrator.run_pipeline."""
+    token = extracted.get("access_token")
+    if token is None:
+        raise AuthError(
+            f"no access_token extracted before target {target.target_id!r} "
+            f"needed oauth2 credentials -- add an earlier pipeline step "
+            f"whose `extract` config produces `access_token`"
+        )
     return Credential(header_name="Authorization", header_value=f"Bearer {token}")
 
 
@@ -96,14 +88,17 @@ def _api_key(target: Target) -> Credential:
 
 
 _DISPATCH = {
-    "oauth2": _oauth2_client_credentials,
+    "oauth2": _oauth2_from_extracted,
     "basic": _basic_auth,
     "apikey": _api_key,
 }
 
 
-def get_credential(target: Target) -> Credential:
+def get_credential(target: Target, extracted: Optional[dict] = None) -> Credential:
+    extracted = extracted or {}
     handler = _DISPATCH.get(target.auth_type)
     if handler is None:
         raise AuthError(f"unsupported auth_type {target.auth_type!r} for target {target.target_id!r}")
+    if target.auth_type == "oauth2":
+        return handler(target, extracted)
     return handler(target)
