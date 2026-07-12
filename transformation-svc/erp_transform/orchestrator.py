@@ -166,25 +166,26 @@ def run_pipeline(pipeline_id: str, source: dict) -> dict:
         (pipeline_id + json.dumps(source, sort_keys=True)).encode()
     ).hexdigest()
 
-    cfg_conn_kwargs = {}
-    with db.get_connection(**cfg_conn_kwargs) as conn:
+    with db.get_connection() as conn:
         raw_payload_id = db.create_raw_payload(conn, pipeline_id, idempotency_key, source)
         run = db.create_pipeline_run(conn, raw_payload_id, pipeline_id)
-        pipeline_steps = db.get_pipeline_steps(conn, pipeline_id)
-        targets_by_id = {
-            ps.step.target_id: db.get_target(conn, ps.step.target_id)
-            for ps in pipeline_steps
-        }
-        mappings_by_step = {
-            ps.step.step_pk: db.get_field_mappings(conn, ps.step.step_pk)
-            for ps in pipeline_steps
-        }
 
     steps_scope: dict = {}
     extracted_scope: dict = {}
     step_results = []
 
     try:
+        with db.get_connection() as conn:
+            pipeline_steps = db.get_pipeline_steps(conn, pipeline_id)
+            targets_by_id = {
+                ps.step.target_id: db.get_target(conn, ps.step.target_id)
+                for ps in pipeline_steps
+            }
+            mappings_by_step = {
+                ps.step.step_pk: db.get_field_mappings(conn, ps.step.step_pk)
+                for ps in pipeline_steps
+            }
+
         with db.get_connection() as conn:
             for ps in pipeline_steps:
                 step = ps.step
