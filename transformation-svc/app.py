@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """
-Minimal local-only HTTP wrapper around the transform stage, so it can be
+Minimal local-only HTTP wrapper around the orchestrator, so it can be
 exercised from Postman/curl exactly like the SQL RPC endpoint
 (documentation/postman) already is -- gives a real request/response loop to
 test against while this is still a local FastAPI app, and roughly mirrors the
 shape an API Gateway + Lambda front door would have later (one route per
-stage; transform is the only one exposed here since it's the only stage
-safe to call with no side effects).
+stage).
+
+/transform-pipeline sends every attached step's request for real (via
+erp_transform.orchestrator.run_pipeline) and persists a pipeline_run audit
+trail; /transform is the dry-run, no-HTTP, single-step debugging route.
 
 Run:
     uvicorn app:app --reload --port 8000
     (or: python app.py)
 Then POST to http://localhost:8000/transform-pipeline (pipeline_id -- what a
 real caller like CRM/Salesforce actually knows) or
-http://localhost:8000/transform (step_pk -- kept for direct step debugging).
+http://localhost:8000/transform (step_pk -- kept for direct step debugging,
+transform-only, no HTTP call, no DB writes beyond reads).
 
 FastAPI over Flask here specifically because this is meant to evolve toward
 Step Functions/Lambda: request/response validation is declarative (Pydantic
@@ -32,14 +36,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from erp_transform.orchestrator import transform_only, transform_pipeline
+from erp_transform.orchestrator import run_pipeline, transform_only
 
 app = FastAPI(
     title="transformation-svc (local dev)",
     description=(
         "Local-only wrapper around erp_transform.orchestrator. "
-        "Never calls any external/client endpoint -- transform-only, reads "
-        "pipeline config from the local Postgres."
+        "/transform-pipeline sends real HTTP requests to client targets and "
+        "audits the run; /transform is a dry-run, single-step debugging route."
     ),
 )
 
@@ -62,10 +66,18 @@ class StepResult(BaseModel):
     transformed_body: dict[str, Any]
 
 
+class RunStepResult(BaseModel):
+    seq: int
+    step_name: str
+    status_code: Optional[int]
+    response_body: Any
+
+
 class TransformPipelineResponse(BaseModel):
     pipeline_id: str
-    pattern_id: str
-    steps: list[StepResult]
+    run_id: str
+    status: str
+    steps: list[RunStepResult]
 
 
 class HealthResponse(BaseModel):
@@ -76,9 +88,10 @@ class HealthResponse(BaseModel):
 def transform_pipeline_route(body: TransformPipelineRequest):
     """Primary entry point: caller supplies pipeline_id (the identifier a CRM
     actually has, per pipeline-routing-config-db-requirements.md §2-3), not
-    an internal step_pk. Runs every attached step's transform in seq order."""
+    an internal step_pk. Sends every attached step's request for real, in seq
+    order, and persists a pipeline_run/pipeline_run_extract audit trail."""
     try:
-        return transform_pipeline(body.pipeline_id, body.source)
+        return run_pipeline(body.pipeline_id, body.source)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

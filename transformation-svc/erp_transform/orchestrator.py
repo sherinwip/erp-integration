@@ -167,6 +167,7 @@ def run_pipeline(pipeline_id: str, source: dict) -> dict:
     ).hexdigest()
 
     with db.get_connection() as conn:
+        db.get_pipeline(conn, pipeline_id)  # raises ValueError if pipeline_id doesn't exist
         raw_payload_id = db.create_raw_payload(conn, pipeline_id, idempotency_key, source)
         run = db.create_pipeline_run(conn, raw_payload_id, pipeline_id)
 
