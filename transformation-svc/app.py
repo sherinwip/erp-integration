@@ -39,6 +39,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 from erp_transform.orchestrator import run_pipeline, transform_only
 
 app = FastAPI(
