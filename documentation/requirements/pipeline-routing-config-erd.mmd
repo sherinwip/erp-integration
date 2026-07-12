@@ -1,0 +1,81 @@
+erDiagram
+    client {
+        varchar client_id PK
+        varchar client_name
+        boolean is_active
+        timestamp created_at
+    }
+
+    target {
+        varchar target_id PK
+        varchar client_id FK
+        varchar target_name
+        varchar base_url
+        varchar auth_type
+        varchar credential_ref
+        jsonb default_headers
+        boolean is_active
+        timestamp updated_at
+    }
+
+    step {
+        bigserial step_pk PK
+        varchar client_id FK
+        varchar target_id FK
+        varchar step_name
+        varchar method
+        varchar path
+        jsonb query_params
+        jsonb headers
+        jsonb extract
+        varchar on_not_found
+        varchar on_multiple_results
+        varchar rollback_method
+        varchar rollback_path
+        boolean is_active
+        timestamp updated_at
+    }
+
+    pipeline {
+        varchar pipeline_id PK
+        varchar client_id FK
+        varchar version
+        varchar source_system
+        varchar object_type
+        varchar event_type
+        varchar pattern_id
+        varchar status
+        int retry_max_attempts
+        varchar retry_backoff
+        int retry_backoff_base_ms
+        varchar retry_on_status_codes
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    pipeline_step {
+        bigserial pipeline_step_pk PK
+        varchar pipeline_id FK
+        bigint step_pk FK
+        int seq
+    }
+
+    field_mapping {
+        bigserial mapping_pk PK
+        bigint step_pk FK
+        varchar source_path
+        varchar target_path
+        varchar transform_type
+        varchar transform_params
+        varchar default_value
+        boolean is_required
+        int sort_order
+    }
+
+    client ||--o{ target : owns
+    client ||--o{ step : owns
+    client ||--o{ pipeline : owns
+    target ||--o{ step : "referenced by"
+    pipeline ||--o{ pipeline_step : attaches
+    step ||--o{ pipeline_step : "attached via"
+    step ||--o{ field_mapping : "body built from"
