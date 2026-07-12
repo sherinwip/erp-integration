@@ -39,3 +39,10 @@ def get_db_config() -> DBConfig:
 
 def get_http_timeout_seconds() -> float:
     return float(os.environ.get("HTTP_TIMEOUT_SECONDS", "30"))
+
+
+def get_secrets_manager_endpoint_url() -> str | None:
+    """AWS_ENDPOINT_URL for Secrets Manager. Set to LocalStack
+    (e.g. http://localhost:4566) locally; unset in production to hit
+    real AWS Secrets Manager."""
+    return os.environ.get("AWS_ENDPOINT_URL") or None

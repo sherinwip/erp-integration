@@ -4,19 +4,20 @@ based on its auth_type. Generic dispatch by auth_type string so adding a new
 auth mechanism later is one new branch/function, not a rewrite.
 
 Secrets are never read from field_mapping/target config directly --
-credential_ref is a lookup key into a secrets provider (env vars locally,
-AWS Secrets Manager/SSM in production). This module never logs a resolved
-secret value.
+credential_ref is a lookup key into AWS Secrets Manager (LocalStack locally,
+real AWS in production -- same boto3 call, only AWS_ENDPOINT_URL differs).
+This module never logs a resolved secret value.
 """
 from __future__ import annotations
 
-import os
+import json
 from dataclasses import dataclass
-from typing import Optional
+from functools import lru_cache
 
+import boto3
 import requests
 
-from .config import get_http_timeout_seconds
+from .config import get_http_timeout_seconds, get_secrets_manager_endpoint_url
 from .db import Target
 
 
@@ -33,27 +34,27 @@ class Credential:
     header_value: str
 
 
+@lru_cache(maxsize=1)
+def _secrets_client():
+    return boto3.client(
+        "secretsmanager",
+        endpoint_url=get_secrets_manager_endpoint_url(),
+    )
+
+
 def _get_secret(credential_ref: str) -> dict:
     """
-    Resolves a credential_ref to its secret material.
-
-    Local/dev: reads a JSON blob from an environment variable named
-    f"CRED_{credential_ref}" (uppercased, non-alnum -> underscore), e.g.
-    credential_ref "oracle-ewnj-test-creds" -> env var CRED_ORACLE_EWNJ_TEST_CREDS.
-
-    Production: swap this function body for a boto3 Secrets Manager /
-    SSM Parameter Store lookup keyed the same way -- callers (get_credential
-    below) don't change.
+    Resolves a credential_ref to its secret material via AWS Secrets Manager.
+    credential_ref is used directly as the secret name/id.
     """
-    env_key = "CRED_" + "".join(c.upper() if c.isalnum() else "_" for c in credential_ref)
-    raw = os.environ.get(env_key)
-    if raw is None:
+    try:
+        resp = _secrets_client().get_secret_value(SecretId=credential_ref)
+    except Exception as exc:
         raise AuthError(
             f"no secret configured for credential_ref={credential_ref!r} "
-            f"(expected env var {env_key})"
-        )
-    import json
-    return json.loads(raw)
+            f"(Secrets Manager lookup failed: {exc})"
+        ) from exc
+    return json.loads(resp["SecretString"])
 
 
 def _oauth2_client_credentials(target: Target) -> Credential:
