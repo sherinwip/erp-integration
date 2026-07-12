@@ -181,3 +181,89 @@ def get_field_mappings(conn, step_pk: int) -> list[FieldMapping]:
             (step_pk,),
         )
         return [FieldMapping(**row) for row in cur.fetchall()]
+
+
+@dataclass(frozen=True)
+class PipelineRun:
+    run_id: str
+    raw_payload_id: str
+    pipeline_id: str
+    status: str
+
+
+def create_raw_payload(conn, pipeline_id: str, idempotency_key: str, payload: dict) -> str:
+    """Inserts a raw_payload row, or returns the existing raw_payload_id if
+    idempotency_key already exists (cheap dedup only -- real replay/skip
+    ingestion semantics are out of scope here)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO raw_payload (pipeline_id, idempotency_key, payload)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (idempotency_key) DO NOTHING
+            RETURNING raw_payload_id
+            """,
+            (pipeline_id, idempotency_key, psycopg2.extras.Json(payload)),
+        )
+        row = cur.fetchone()
+        if row is not None:
+            conn.commit()
+            return str(row[0])
+
+        cur.execute(
+            "SELECT raw_payload_id FROM raw_payload WHERE idempotency_key = %s",
+            (idempotency_key,),
+        )
+        raw_payload_id = cur.fetchone()[0]
+        conn.commit()
+        return str(raw_payload_id)
+
+
+def create_pipeline_run(conn, raw_payload_id: str, pipeline_id: str) -> PipelineRun:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO pipeline_run (raw_payload_id, pipeline_id)
+            VALUES (%s, %s)
+            RETURNING run_id, status
+            """,
+            (raw_payload_id, pipeline_id),
+        )
+        run_id, status = cur.fetchone()
+        conn.commit()
+        return PipelineRun(
+            run_id=str(run_id),
+            raw_payload_id=raw_payload_id,
+            pipeline_id=pipeline_id,
+            status=status,
+        )
+
+
+def update_pipeline_run_status(conn, run_id: str, status: str) -> None:
+    with conn.cursor() as cur:
+        if status in ("completed", "failed"):
+            cur.execute(
+                "UPDATE pipeline_run SET status = %s, completed_at = now() WHERE run_id = %s",
+                (status, run_id),
+            )
+        else:
+            cur.execute(
+                "UPDATE pipeline_run SET status = %s WHERE run_id = %s",
+                (status, run_id),
+            )
+        conn.commit()
+
+
+def insert_pipeline_run_extract(conn, run_id: str, step_pk: int, values: dict) -> None:
+    if not values:
+        return
+    with conn.cursor() as cur:
+        for var_name, value in values.items():
+            cur.execute(
+                """
+                INSERT INTO pipeline_run_extract (run_id, step_pk, var_name, value)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (run_id, step_pk, var_name, str(value)),
+            )
+        conn.commit()

@@ -7,6 +7,8 @@ In a Step Functions/Lambda deployment, DB_* would come from Lambda environment
 variables (populated from Secrets Manager/SSM at deploy time), not from a
 .env file or hardcoded default.
 """
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 
@@ -31,11 +33,18 @@ def get_db_config() -> DBConfig:
     return DBConfig(
         host=os.environ.get("DB_HOST", "localhost"),
         port=int(os.environ.get("DB_PORT", "5432")),
-        dbname=os.environ.get("DB_NAME", "crm-db"),
-        user=os.environ.get("DB_USER", "postgres"),
-        password=os.environ.get("DB_PASSWORD", "postgres"),
+        dbname=os.environ.get("DB_NAME", "erp-integration"),
+        user=os.environ.get("DB_USER", "root"),
+        password=os.environ.get("DB_PASSWORD", "root"),
     )
 
 
 def get_http_timeout_seconds() -> float:
     return float(os.environ.get("HTTP_TIMEOUT_SECONDS", "30"))
+
+
+def get_secrets_manager_endpoint_url() -> str | None:
+    """AWS_ENDPOINT_URL for Secrets Manager. Set to LocalStack
+    (e.g. http://localhost:4566) locally; unset in production to hit
+    real AWS Secrets Manager."""
+    return os.environ.get("AWS_ENDPOINT_URL") or None

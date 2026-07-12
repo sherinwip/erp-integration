@@ -561,7 +561,7 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
             <div key={i} className="flex items-center gap-1.5">
               <input value={item.source}
                 onChange={(e) => setExtractMappings((c) => c.map((x, idx) => idx === i ? { ...x, source: e.target.value } : x))}
-                placeholder="response.path"
+                placeholder="$.access_token"
                 className="flex-1 rounded-2xl border border-outline-variant bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-primary" />
               <span className="material-symbols-outlined text-xs text-slate-400">arrow_forward</span>
               <input value={item.target}

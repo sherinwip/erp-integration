@@ -11,17 +11,20 @@
     <include file="changes/004-create-step.xml" relativeToChangelogFile="true"/>
     <include file="changes/005-create-pipeline-step.xml" relativeToChangelogFile="true"/>
     <include file="changes/006-create-field-mapping.xml" relativeToChangelogFile="true"/>
-    <include file="changes/007-seed-data.xml" relativeToChangelogFile="true"/>
+    <!-- <include file="changes/007-seed-data.xml" relativeToChangelogFile="true"/> -->
     <include file="changes/008-alter-field-mapping-add-array-support.xml" relativeToChangelogFile="true"/>
-    <include file="changes/009-seed-oracle-contract-pipeline.xml" relativeToChangelogFile="true"/>
+    <!-- <include file="changes/009-seed-oracle-contract-pipeline.xml" relativeToChangelogFile="true"/> -->
     <include file="changes/010-create-transform-payload-function.xml" relativeToChangelogFile="true"/>
     <include file="changes/011-create-apply-field-transform-function.xml" relativeToChangelogFile="true"/>
     <include file="changes/012-update-transform-payload-apply-transforms.xml" relativeToChangelogFile="true"/>
-    <include file="changes/013-demo-transform-showcase.xml" relativeToChangelogFile="true"/>
+    <!-- <include file="changes/013-demo-transform-showcase.xml" relativeToChangelogFile="true"/>
     <include file="changes/014-demo-new-object-with-array-retained.xml" relativeToChangelogFile="true"/>
-    <include file="changes/015-demo-new-object-step17.xml" relativeToChangelogFile="true"/>
+    <include file="changes/015-demo-new-object-step17.xml" relativeToChangelogFile="true"/> --> 
     <include file="changes/016-add-field-mapping-is-object-target.xml" relativeToChangelogFile="true"/>
     <include file="changes/017-update-transform-payload-object-target.xml" relativeToChangelogFile="true"/>
-    <include file="changes/018-demo-object-target-showcase.xml" relativeToChangelogFile="true"/>
+    <!-- <include file="changes/018-demo-object-target-showcase.xml" relativeToChangelogFile="true"/> -->
+    <include file="changes/019-create-raw-payload-pipeline-run-quarantine.xml" relativeToChangelogFile="true"/>
+    <include file="changes/020-create-pipeline-run-extract.xml" relativeToChangelogFile="true"/>
+    <!-- <include file="changes/021-seed-fetchtoken-extract.xml" relativeToChangelogFile="true"/> -->
 
 </databaseChangeLog>

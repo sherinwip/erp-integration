@@ -73,3 +73,73 @@ def test_multi_step_pipeline_runs_in_seq_order():
 def test_unknown_pipeline_id_raises():
     with pytest.raises(ValueError, match="not found"):
         transform_pipeline("does-not-exist", {})
+
+
+import hashlib
+import json
+
+from erp_transform.db import get_connection
+from erp_transform.orchestrator import run_pipeline
+
+
+@skip_if_no_db
+def test_run_pipeline_happy_path_extracts_token_and_uses_it():
+    source = {
+        "orgId": 300000019976011,
+        "contractNumber": f"TEST-{hashlib.sha1(str(id(object())).encode()).hexdigest()[:8]}",
+        "legalEntityName": "Test Corp",
+        "startDate": "2026-03-20",
+        "headerAttributes": {},
+        "parties": [{"partyRoleCode": "CUSTOMER", "role": "Customer", "partyName": "Test Buyer"}],
+        "lines": [{"itemName": "ITEM-1", "lineAttributes": {}}],
+    }
+    result = run_pipeline("vaibhav-award-to-oracle-contract-demo-v1", source)
+
+    assert result["pipeline_id"] == "vaibhav-award-to-oracle-contract-demo-v1"
+    assert result["status"] == "completed"
+    assert [s["step_name"] for s in result["steps"]] == ["fetchToken", "create-oracle-contract-demo"]
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT status FROM pipeline_run WHERE run_id = %s", (result["run_id"],)
+            )
+            assert cur.fetchone()[0] == "completed"
+            cur.execute(
+                "SELECT var_name, value FROM pipeline_run_extract WHERE run_id = %s",
+                (result["run_id"],),
+            )
+            extracted_rows = dict(cur.fetchall())
+            assert "access_token" in extracted_rows
+
+
+@skip_if_no_db
+def test_run_pipeline_marks_failed_when_extract_rule_does_not_match():
+    """Points fetchToken's extract rule at a JSONPath the mock oauth server's
+    response never contains, so extraction should fail and abort the run
+    before the business step ever executes."""
+    import erp_transform.db as db_module
+
+    original_get_pipeline_steps = db_module.get_pipeline_steps
+
+    def _broken_get_pipeline_steps(conn, pipeline_id):
+        steps = original_get_pipeline_steps(conn, pipeline_id)
+        patched = []
+        for ps in steps:
+            if ps.step.step_name == "fetchToken":
+                broken_extract = {"access_token": "$.this_field_does_not_exist"}
+                broken_step = ps.step.__class__(
+                    **{**ps.step.__dict__, "extract": broken_extract}
+                )
+                patched.append(ps.__class__(seq=ps.seq, step=broken_step))
+            else:
+                patched.append(ps)
+        return patched
+
+    db_module.get_pipeline_steps = _broken_get_pipeline_steps
+    try:
+        result = run_pipeline("vaibhav-award-to-oracle-contract-demo-v1", {})
+        assert result["status"] == "failed"
+        assert [s["step_name"] for s in result["steps"]] == ["fetchToken"]
+    finally:
+        db_module.get_pipeline_steps = original_get_pipeline_steps

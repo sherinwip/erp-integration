@@ -4,19 +4,20 @@ based on its auth_type. Generic dispatch by auth_type string so adding a new
 auth mechanism later is one new branch/function, not a rewrite.
 
 Secrets are never read from field_mapping/target config directly --
-credential_ref is a lookup key into a secrets provider (env vars locally,
-AWS Secrets Manager/SSM in production). This module never logs a resolved
-secret value.
+credential_ref is a lookup key into AWS Secrets Manager (LocalStack locally,
+real AWS in production -- same boto3 call, only AWS_ENDPOINT_URL differs).
+This module never logs a resolved secret value.
 """
 from __future__ import annotations
 
-import os
+import json
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Optional
 
-import requests
+import boto3
 
-from .config import get_http_timeout_seconds
+from .config import get_http_timeout_seconds, get_secrets_manager_endpoint_url
 from .db import Target
 
 
@@ -33,49 +34,41 @@ class Credential:
     header_value: str
 
 
+@lru_cache(maxsize=1)
+def _secrets_client():
+    return boto3.client(
+        "secretsmanager",
+        endpoint_url=get_secrets_manager_endpoint_url(),
+    )
+
+
 def _get_secret(credential_ref: str) -> dict:
     """
-    Resolves a credential_ref to its secret material.
-
-    Local/dev: reads a JSON blob from an environment variable named
-    f"CRED_{credential_ref}" (uppercased, non-alnum -> underscore), e.g.
-    credential_ref "oracle-ewnj-test-creds" -> env var CRED_ORACLE_EWNJ_TEST_CREDS.
-
-    Production: swap this function body for a boto3 Secrets Manager /
-    SSM Parameter Store lookup keyed the same way -- callers (get_credential
-    below) don't change.
+    Resolves a credential_ref to its secret material via AWS Secrets Manager.
+    credential_ref is used directly as the secret name/id.
     """
-    env_key = "CRED_" + "".join(c.upper() if c.isalnum() else "_" for c in credential_ref)
-    raw = os.environ.get(env_key)
-    if raw is None:
+    try:
+        resp = _secrets_client().get_secret_value(SecretId=credential_ref)
+    except Exception as exc:
         raise AuthError(
             f"no secret configured for credential_ref={credential_ref!r} "
-            f"(expected env var {env_key})"
+            f"(Secrets Manager lookup failed: {exc})"
+        ) from exc
+    return json.loads(resp["SecretString"])
+
+
+def _oauth2_from_extracted(target: Target, extracted: dict) -> Credential:
+    """oauth2 credentials are no longer fetched inline here -- they come from
+    a pipeline step (e.g. `fetchToken`) that ran earlier in the same
+    pipeline_run and had `access_token` as one of its extract rules. See
+    erp_transform.extract and orchestrator.run_pipeline."""
+    token = extracted.get("access_token")
+    if token is None:
+        raise AuthError(
+            f"no access_token extracted before target {target.target_id!r} "
+            f"needed oauth2 credentials -- add an earlier pipeline step "
+            f"whose `extract` config produces `access_token`"
         )
-    import json
-    return json.loads(raw)
-
-
-def _oauth2_client_credentials(target: Target) -> Credential:
-    secret = _get_secret(target.credential_ref)
-    token_url = secret["tokenUrl"]
-    client_id = secret["clientId"]
-    client_secret = secret["clientSecret"]
-    scope = secret.get("scope")
-
-    data = {"grant_type": "client_credentials"}
-    if scope:
-        data["scope"] = scope
-
-    resp = requests.post(
-        token_url,
-        data=data,
-        auth=(client_id, client_secret),
-        headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
-        timeout=get_http_timeout_seconds(),
-    )
-    resp.raise_for_status()
-    token = resp.json()["access_token"]
     return Credential(header_name="Authorization", header_value=f"Bearer {token}")
 
 
@@ -95,14 +88,17 @@ def _api_key(target: Target) -> Credential:
 
 
 _DISPATCH = {
-    "oauth2": _oauth2_client_credentials,
+    "oauth2": _oauth2_from_extracted,
     "basic": _basic_auth,
     "apikey": _api_key,
 }
 
 
-def get_credential(target: Target) -> Credential:
+def get_credential(target: Target, extracted: Optional[dict] = None) -> Credential:
+    extracted = extracted or {}
     handler = _DISPATCH.get(target.auth_type)
     if handler is None:
         raise AuthError(f"unsupported auth_type {target.auth_type!r} for target {target.target_id!r}")
+    if target.auth_type == "oauth2":
+        return handler(target, extracted)
     return handler(target)
