@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="020-create-table-pipeline-run-extract" author="erp-integration">
+        <createTable tableName="pipeline_run_extract">
+            <column name="run_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="step_pk" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="var_name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="value" type="TEXT"/>
+        </createTable>
+
+        <addPrimaryKey tableName="pipeline_run_extract" columnNames="run_id, var_name"
+            constraintName="pk_pipeline_run_extract"/>
+
+        <addForeignKeyConstraint
+            baseTableName="pipeline_run_extract" baseColumnNames="run_id"
+            referencedTableName="pipeline_run" referencedColumnNames="run_id"
+            constraintName="fk_pipeline_run_extract_run"/>
+
+        <addForeignKeyConstraint
+            baseTableName="pipeline_run_extract" baseColumnNames="step_pk"
+            referencedTableName="step" referencedColumnNames="step_pk"
+            constraintName="fk_pipeline_run_extract_step"/>
+    </changeSet>
+
+</databaseChangeLog>

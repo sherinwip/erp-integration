@@ -23,5 +23,7 @@
     <include file="changes/016-add-field-mapping-is-object-target.xml" relativeToChangelogFile="true"/>
     <include file="changes/017-update-transform-payload-object-target.xml" relativeToChangelogFile="true"/>
     <include file="changes/018-demo-object-target-showcase.xml" relativeToChangelogFile="true"/>
+    <include file="changes/019-create-raw-payload-pipeline-run-quarantine.xml" relativeToChangelogFile="true"/>
+    <include file="changes/020-create-pipeline-run-extract.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>
