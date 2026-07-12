@@ -25,5 +25,6 @@
     <include file="changes/018-demo-object-target-showcase.xml" relativeToChangelogFile="true"/>
     <include file="changes/019-create-raw-payload-pipeline-run-quarantine.xml" relativeToChangelogFile="true"/>
     <include file="changes/020-create-pipeline-run-extract.xml" relativeToChangelogFile="true"/>
+    <include file="changes/021-seed-fetchtoken-extract.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

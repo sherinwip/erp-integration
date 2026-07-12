@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Seeds the `extract` config for the vaibhav-award-to-oracle-contract-demo-v1
+        pipeline's fetchToken step (step_pk=6, target vaibhav1-DEMO-token). This was
+        previously set only via a one-off live API call during development; there was
+        no source-controlled seed for it, so a fresh database would be missing this
+        value and test_run_pipeline_happy_path_extracts_token_and_uses_it (in
+        transformation-svc/tests/test_orchestrator.py) would fail against it.
+
+        Target vaibhav1-DEMO-token has auth_type='basic' (not oauth2), so this step can
+        authenticate itself with basic auth and produce the access_token that later
+        steps in the pipeline consume; no oauth2 bootstrap cycle here.
+
+        Plain UPDATE, idempotent by construction: re-running it against a database that
+        already has this value (e.g. from the earlier live API call) is a no-op, so no
+        precondition is needed.
+    -->
+
+    <changeSet id="021-seed-fetchtoken-extract" author="erp-integration" context="demo">
+        <sql>
+            UPDATE step
+            SET extract = '{"access_token": "$.access_token"}'
+            WHERE step_pk = 6
+              AND client_id = 'vaibhav1-DEMO'
+              AND target_id = 'vaibhav1-DEMO-token'
+              AND step_name = 'fetchToken';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
