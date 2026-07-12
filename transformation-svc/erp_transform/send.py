@@ -24,13 +24,24 @@ class StepResult:
     request_body: Optional[dict]
 
 
-def _render_template(value: str, source: dict, previous_steps: dict) -> str:
-    """Very small {{source.x}} / {{steps.stepName.x}} renderer for URL paths
-    and query params -- mirrors the template syntax in pipeline-routing-config-db-requirements.md §3.2."""
+def _render_template(
+    value: str,
+    source: dict,
+    previous_steps: dict,
+    extracted: dict | None = None,
+) -> str:
+    """{{source.x}} / {{steps.stepName.x}} / {{var_name}} renderer for URL
+    paths, query params, and headers. {{source.*}} and {{steps.*}} mirror
+    the template syntax in pipeline-routing-config-db-requirements.md §3.2.
+    Bare {{var_name}} (no dot) is a distinct namespace: values produced by
+    an earlier step's `extract` rules for this pipeline run (see
+    erp_transform.extract), e.g. {{access_token}}."""
     if "{{" not in value:
         return value
 
     import re
+
+    extracted = extracted or {}
 
     def replace(match: "re.Match") -> str:
         expr = match.group(1).strip()
@@ -46,6 +57,9 @@ def _render_template(value: str, source: dict, previous_steps: dict) -> str:
             for p in rest:
                 node = node.get(p) if isinstance(node, dict) else None
             return str(node) if node is not None else ""
+        if len(parts) == 1:
+            node = extracted.get(parts[0])
+            return str(node) if node is not None else ""
         return match.group(0)
 
     return re.sub(r"\{\{\s*([^}]+)\s*\}\}", replace, value)
@@ -58,21 +72,24 @@ def execute_step(
     body: Optional[dict],
     source: Optional[dict] = None,
     previous_steps: Optional[dict] = None,
+    extracted: Optional[dict] = None,
 ) -> StepResult:
     source = source or {}
     previous_steps = previous_steps or {}
+    extracted = extracted or {}
 
-    path = _render_template(step.path, source, previous_steps)
+    path = _render_template(step.path, source, previous_steps, extracted)
     url = target.base_url.rstrip("/") + "/" + path.lstrip("/")
 
     query_params = {}
     if step.query_params:
         for key, value in step.query_params.items():
-            query_params[key] = _render_template(str(value), source, previous_steps)
+            query_params[key] = _render_template(str(value), source, previous_steps, extracted)
 
     headers = dict(target.default_headers or {})
     if step.headers:
-        headers.update(step.headers)
+        for key, value in step.headers.items():
+            headers[key] = _render_template(str(value), source, previous_steps, extracted)
     headers[credential.header_name] = credential.header_value
 
     resp = requests.request(
