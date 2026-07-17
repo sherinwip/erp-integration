@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: erp-config-api-java
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:erp-integration}
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+server:
+  port: 8080
+
+app:
+  api:
+    base-path: /api/config
+    version-header: X-API-Version
+    version-response-header: X-API-Version-Used

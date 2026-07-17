@@ -1,0 +1,851 @@
+{
+  "info": {
+    "_postman_id": "ecc9a5cf-45b3-4d0d-8493-fe526a5d249c",
+    "name": "response-extraction-demo-01",
+    "description": "End-to-end setup + verification for the config-driven response extraction feature. Creates a fresh client, a target for the mock Oracle Fusion oauth endpoint and a target for its contracts endpoint (both http://localhost:9010, see mock-oracle-fusion/generic/app.py), a fetchToken step with a JSONPath extract rule (`{\"access_token\": \"$.access_token\"}`), a create-contract step, and wires them into one pipeline in seq order (fetchToken=1, create-contract=2) so fetchToken's extracted access_token is available to create-contract as a bearer credential.\n\nPrereqs before running:\n- erp-config-api running on localhost:8010 (`uvicorn app.main:app --reload --port 8010` from erp-config-api/, or however this project normally starts it)\n- mock-oracle-fusion/generic/app.py running on localhost:9010 (`python app.py`)\n- Postgres reachable with the erp_integration schema migrated\n\nRun folders 1-5 in order (Postman's Collection Runner respects folder/request order top to bottom). Each request's test script captures IDs into collection variables so later requests don't need manual edits.\n\nNote: this collection only exercises the config API (client/target/step/pipeline/pipeline_step CRUD) plus the mock server directly. Actually EXECUTING the wired pipeline for real (transformation-svc's run_pipeline, which does the real HTTP send + extraction + auth chaining) has no HTTP endpoint yet -- app.py in transformation-svc deliberately only wraps the side-effect-free dry-run transform_pipeline/transform_only. To run this pipeline for real once it's configured here, use the CLI instead:\n\n  cd transformation-svc && source .venv/bin/activate && DB_HOST=localhost DB_PORT=5432 DB_NAME=erp_integration DB_USER=root DB_PASSWORD=root python cli.py --pipeline-id {{pipelineId}} --send --input <path to a JSON file with {}>\n\nSee folder 6 for a Postman request that documents this and hits the mock server directly to prove the two endpoints it depends on work, as a smoke test you CAN run from here.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "3420702"
+  },
+  "item": [
+    {
+      "name": "1 - Create Client",
+      "item": [
+        {
+          "name": "Create Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.test('client_id matches', () => pm.expect(pm.response.json().client_id).to.eql(pm.collectionVariables.get('clientId')));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"client_name\": \"Response Extraction Demo\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/clients",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "clients"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2 - Create Targets (both on localhost:9010)",
+      "item": [
+        {
+          "name": "Create Target - Token Endpoint (basic auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.test('auth_type is basic', () => pm.expect(pm.response.json().auth_type).to.eql('basic'));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_id\": \"{{tokenTargetId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"target_name\": \"OracleFusionToken01\",\n  \"base_url\": \"{{mockOracleBaseUrl}}\",\n  \"auth_type\": \"basic\",\n  \"credential_ref\": \"oracle-ewnj-test-creds-demo\",\n  \"default_headers\": {\n    \"Content-Type\": \"application/json\"\n  },\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/targets",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "targets"
+              ]
+            },
+            "description": "auth_type=basic here is deliberate, not oauth2: this target's own step (fetchToken) is what PRODUCES the access_token used by the contracts target below. If this target were oauth2 itself it would need a token to fetch a token -- an unbreakable bootstrap cycle. credential_ref just needs to resolve in Secrets Manager/LocalStack for basic-auth credential lookup; the mock server itself doesn't validate the Authorization header on /oauth2/v1/token."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Target - Contracts Endpoint (oauth2 auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.test('auth_type is oauth2', () => pm.expect(pm.response.json().auth_type).to.eql('oauth2'));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_id\": \"{{contractTargetId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"target_name\": \"OracleFusionContracts01\",\n  \"base_url\": \"{{mockOracleBaseUrl}}\",\n  \"auth_type\": \"oauth2\",\n  \"credential_ref\": \"oracle-ewnj-test-creds-demo\",\n  \"default_headers\": {\n    \"Content-Type\": \"application/json\"\n  },\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/targets",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "targets"
+              ]
+            },
+            "description": "auth_type=oauth2: at runtime, run_pipeline resolves this target's credential from the pipeline's extracted_scope (populated by the earlier fetchToken step's extract rule), NOT from Secrets Manager -- see erp_transform/auth.py's _oauth2_from_extracted."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Target",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.test('auth_type is oauth2', () => pm.expect(pm.response.json().auth_type).to.eql('oauth2'));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_id\": \"{{contractTargetId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"target_name\": \"OracleFusionContracts\",\n  \"base_url\": \"{{mockOracleBaseUrl}}\",\n  \"auth_type\": \"oauth2\",\n  \"credential_ref\": \"oracle-ewnj-test-creds-demo\",\n  \"default_headers\": {\n    \"Content-Type\": \"application/json\"\n  },\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/targets",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "targets"
+              ]
+            },
+            "description": "auth_type=oauth2: at runtime, run_pipeline resolves this target's credential from the pipeline's extracted_scope (populated by the earlier fetchToken step's extract rule), NOT from Secrets Manager -- see erp_transform/auth.py's _oauth2_from_extracted."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3 - Create Steps",
+      "item": [
+        {
+          "name": "Create Step - fetchToken (with extract rule)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "const body = pm.response.json();",
+                  "pm.test('extract rule saved correctly', () => {",
+                  "  pm.expect(body.extract).to.eql({ access_token: '$.access_token' });",
+                  "});",
+                  "pm.collectionVariables.set('fetchTokenStepPk', body.step_pk);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"target_id\": \"{{tokenTargetId}}\",\n  \"step_name\": \"fetchToken01\",\n  \"method\": \"POST\",\n  \"path\": \"/oauth2/v1/token\",\n  \"extract\": {\n    \"access_token\": \"$.access_token\"\n  },\n  \"on_not_found\": \"fail\",\n  \"on_multiple_results\": \"useFirst\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "steps"
+              ]
+            },
+            "description": "extract.access_token = $.access_token pulls the token straight out of the mock's /oauth2/v1/token response body ({\"access_token\": \"sample-bearer-token\", ...}). This is this feature's core: extraction rules are set directly on step creation via the `extract` field -- the config-portal UI's Response Extraction section does the same thing under the hood."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Step - create-contract",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.collectionVariables.set('createContractStepPk', pm.response.json().step_pk);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"target_id\": \"{{contractTargetId}}\",\n  \"step_name\": \"create-contract01\",\n  \"method\": \"POST\",\n  \"path\": \"/fscmRestApi/resources/11.13.18.05/contracts\",\n  \"on_not_found\": \"fail\",\n  \"on_multiple_results\": \"useFirst\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "steps"
+              ]
+            },
+            "description": "At runtime this step's oauth2 target pulls its Authorization bearer from the access_token that fetchToken (seq=1) extracted -- no extract rule needed on this step itself unless a later step in a longer pipeline needed something from ITS response too."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Step List",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.collectionVariables.set('createContractStepPk', pm.response.json().step_pk);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"target_id\": \"{{contractTargetId}}\",\n  \"step_name\": \"create-contract\",\n  \"method\": \"POST\",\n  \"path\": \"/fscmRestApi/resources/11.13.18.05/contracts\",\n  \"on_not_found\": \"fail\",\n  \"on_multiple_results\": \"useFirst\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/steps?client_id=av-client",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "steps"
+              ],
+              "query": [
+                {
+                  "key": "client_id",
+                  "value": "av-client"
+                }
+              ]
+            },
+            "description": "At runtime this step's oauth2 target pulls its Authorization bearer from the access_token that fetchToken (seq=1) extracted -- no extract rule needed on this step itself unless a later step in a longer pipeline needed something from ITS response too."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Step details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.collectionVariables.set('createContractStepPk', pm.response.json().step_pk);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "clientId",
+                "value": "demo-extraction-client",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/steps/6",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "steps",
+                "6"
+              ]
+            },
+            "description": "At runtime this step's oauth2 target pulls its Authorization bearer from the access_token that fetchToken (seq=1) extracted -- no extract rule needed on this step itself unless a later step in a longer pipeline needed something from ITS response too."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4 - field mapping",
+      "item": [
+        {
+          "name": "6 - Add Field Mappings (bulk, one request for all transform_types)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_pk\": \"{{demoStepPk}}\",\n  \"mappings\": [\n    {\n      \"source_path\": \"legalEntityName\",\n      \"target_path\": \"demo_legalEntityName_upper\",\n      \"transform_type\": \"uppercase\",\n      \"sort_order\": 901\n    },\n    {\n      \"source_path\": \"contractTypeName\",\n      \"target_path\": \"demo_contractTypeName_lower\",\n      \"transform_type\": \"lowercase\",\n      \"sort_order\": 902\n    },\n    {\n      \"source_path\": \"owningOrgName\",\n      \"target_path\": \"demo_owningOrgName_title\",\n      \"transform_type\": \"titlecase\",\n      \"sort_order\": 903\n    },\n    {\n      \"source_path\": \"customerPONumber\",\n      \"target_path\": \"demo_customerPONumber_trim\",\n      \"transform_type\": \"trim\",\n      \"sort_order\": 904\n    },\n    {\n      \"source_path\": \"contributionPercent\",\n      \"target_path\": \"demo_contributionPercent_round\",\n      \"transform_type\": \"round\",\n      \"sort_order\": 905,\n      \"transform_params\": \"{\\\"decimals\\\": 2}\"\n    },\n    {\n      \"source_path\": \"orgId\",\n      \"target_path\": \"demo_orgId_typecast_string\",\n      \"transform_type\": \"type_cast\",\n      \"sort_order\": 906,\n      \"transform_params\": \"{\\\"targetType\\\": \\\"string\\\"}\"\n    },\n    {\n      \"source_path\": \"contractNumber\",\n      \"target_path\": \"demo_contractNumber_replace\",\n      \"transform_type\": \"replace\",\n      \"sort_order\": 907,\n      \"transform_params\": \"{\\\"find\\\": \\\"_\\\", \\\"replace\\\": \\\"-\\\"}\"\n    },\n    {\n      \"source_path\": \"headerAttributes.masterContractNumber\",\n      \"target_path\": \"demo_masterContractNumber_splitpick\",\n      \"transform_type\": \"split_pick\",\n      \"sort_order\": 908,\n      \"transform_params\": \"{\\\"delimiter\\\": \\\"-\\\", \\\"index\\\": 1}\"\n    },\n    {\n      \"source_path\": \"startDate\",\n      \"target_path\": \"demo_startDate_dateadd\",\n      \"transform_type\": \"date_add\",\n      \"sort_order\": 909,\n      \"transform_params\": \"{\\\"unit\\\": \\\"months\\\", \\\"amount\\\": 1, \\\"outputFormat\\\": \\\"yyyy-MM-dd\\\"}\"\n    },\n    {\n      \"source_path\": \"headerAttributes.originalContractualDate\",\n      \"target_path\": \"demo_originalContractualDate_reformat\",\n      \"transform_type\": \"date_format\",\n      \"sort_order\": 910,\n      \"transform_params\": \"{\\\"outputFormat\\\": \\\"dd-MM-yyyy\\\"}\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/field-mappings/bulk",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "field-mappings",
+                "bulk"
+              ]
+            },
+            "description": "Adds all 10 field_mapping rows -- one per implemented transform_type (uppercase, lowercase, titlecase, trim, round, type_cast, replace, split_pick, date_add, date_format) -- in a single request/transaction against POST /api/v1/field-mappings/bulk. Hangs off {{demoStepPk}} from request 3."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Field Mapping",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/field-mappings?step_pk=7",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "field-mappings"
+              ],
+              "query": [
+                {
+                  "key": "step_pk",
+                  "value": "7"
+                }
+              ]
+            },
+            "description": "Adds all 10 field_mapping rows -- one per implemented transform_type (uppercase, lowercase, titlecase, trim, round, type_cast, replace, split_pick, date_add, date_format) -- in a single request/transaction against POST /api/v1/field-mappings/bulk. Hangs off {{demoStepPk}} from request 3."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5 - Create Pipeline",
+      "item": [
+        {
+          "name": "Create Pipeline",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"version\": \"1.0\",\n  \"source_system\": \"demo\",\n  \"object_type\": \"ContractAward\",\n  \"event_type\": \"create\",\n  \"pattern_id\": \"PAT-03\",\n  \"status\": \"active\",\n  \"retry_max_attempts\": 3,\n  \"retry_backoff\": \"exponential\",\n  \"retry_backoff_base_ms\": 2000,\n  \"retry_on_status_codes\": \"500,502,503,504\"\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/pipelines",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "pipelines"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getPipelineDetails",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"client_id\": \"{{clientId}}\",\n  \"version\": \"1.0\",\n  \"source_system\": \"demo\",\n  \"object_type\": \"ContractAward\",\n  \"event_type\": \"create\",\n  \"pattern_id\": \"PAT-03\",\n  \"status\": \"active\",\n  \"retry_max_attempts\": 3,\n  \"retry_backoff\": \"exponential\",\n  \"retry_backoff_base_ms\": 2000,\n  \"retry_on_status_codes\": \"500,502,503,504\"\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/pipelines?client_id={{clientId}}",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "pipelines"
+              ],
+              "query": [
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6 - Attach Steps to Pipeline (seq order matters)",
+      "item": [
+        {
+          "name": "Attach fetchToken (seq=1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.test('seq is 1', () => pm.expect(pm.response.json().seq).to.eql(1));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"step_pk\": {{fetchTokenStepPk}},\n  \"seq\": 1\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/pipeline-steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "pipeline-steps"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Attach create-contract (seq=2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 200', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.test('seq is 2', () => pm.expect(pm.response.json().seq).to.eql(2));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"step_pk\": {{createContractStepPk}},\n  \"seq\": 2\n}"
+            },
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/pipeline-steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "pipeline-steps"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Pipeline Steps (ordered)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('two steps in correct seq order', () => {",
+                  "  pm.expect(body.length).to.eql(2);",
+                  "  pm.expect(body.map(s => s.seq)).to.eql([1, 2]);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{configApiBaseUrl}}/api/config/pipelines/{{pipelineId}}/steps",
+              "host": [
+                "{{configApiBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config",
+                "pipelines",
+                "{{pipelineId}}",
+                "steps"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7 - Smoke test the mock server directly",
+      "item": [
+        {
+          "name": "Mock: Fetch Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('response matches what the fetchToken extract rule expects', () => {",
+                  "  pm.expect(pm.response.json().access_token).to.eql('sample-bearer-token');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{mockOracleBaseUrl}}/oauth2/v1/token",
+              "host": [
+                "{{mockOracleBaseUrl}}"
+              ],
+              "path": [
+                "oauth2",
+                "v1",
+                "token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mock: Create Contract (using extracted token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('response echoes SUCCESS status', () => {",
+                  "  pm.expect(pm.response.json().status).to.eql('SUCCESS');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "{{bearer_token_036m}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"demo\": \"payload\"\n}"
+            },
+            "url": {
+              "raw": "{{mockOracleBaseUrl}}/fscmRestApi/resources/11.13.18.05/contracts",
+              "host": [
+                "{{mockOracleBaseUrl}}"
+              ],
+              "path": [
+                "fscmRestApi",
+                "resources",
+                "11.13.18.05",
+                "contracts"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8 - create contract",
+      "item": [
+        {
+          "name": "Run End-to-End Transform (transformation-svc) Copy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_id\": \"{{demoPipelineId}}\",\n  \"source\": {\n    \"eventType\": \"ContractAward\",\n    \"awardId\": \"SF-AWD-2026-0238\",\n    \"orgId\": 300000019976011,\n    \"contractTypeId\": 300000020150131,\n    \"legalEntityName\": \"AeroVironment, Inc.\",\n    \"contractTypeName\": \"Purchase Order\",\n    \"contractNumber\": \"W58RGZ26F0238_X1\",\n    \"startDate\": \"2026-03-20\",\n    \"currencyCode\": \"USD\",\n    \"invOrgName\": \"IMO-Item Master Organization\",\n    \"invOrganizationId\": 300000020021543,\n    \"contributionPercent\": 1,\n    \"customerPONumber\": \"W58RGZ26F0238\",\n    \"owningOrgName\": \"SUAS\",\n    \"netInvoiceFlag\": true,\n    \"buyOrSell\": \"S\",\n    \"headerAttributes\": {\n      \"sfQuoteNumber\": \"Q-02120\",\n      \"sfOpportunityId\": \"OPP-4057\",\n      \"marketSegment\": \"US Army\",\n      \"originalContractualDate\": \"2026-07-23\",\n      \"masterContractNumber\": \"W58RGZ-26-G-0005\",\n      \"contractType\": \"FFP\",\n      \"contractClass\": \"USG-DOD\",\n      \"letterOfCredit\": \"No\",\n      \"creditOrPerformanceGuarantee\": \"No\",\n      \"customerAcceptanceCriteria\": \"Yes\",\n      \"dpasRating\": \"DO_A1\",\n      \"uidRequired\": \"No\",\n      \"casCompliant\": \"Exempt\",\n      \"cageCode\": \"60107\",\n      \"naicsCode\": \"336411\",\n      \"contractAwardBasis\": \"FAR12\",\n      \"certifiedCostOrPricingData\": \"No\",\n      \"dd254Issued\": \"No\",\n      \"subcontractingPlan\": \"No\",\n      \"convertedContract\": \"N\"\n    },\n    \"parties\": [\n      {\n        \"partyRoleCode\": \"CUSTOMER\",\n        \"role\": \"Customer\",\n        \"partyName\": \"US ARMY CONTRACTING COMMAND\"\n      }\n    ],\n    \"lines\": [\n      {\n        \"lineNumber\": \"0001\",\n        \"lineTypeId\": 300000000324971,\n        \"lineTypeName\": \"Item, project\",\n        \"itemName\": \"140000-001\",\n        \"itemDescription\": \"SYSTEM, TOP, M1/2/5 NATO, HD40-LVV+MOD INT, HD40-LVV+RELAY INT, 2AV, VIGILANT SPIRIT, P550\",\n        \"startDate\": \"2026-03-20\",\n        \"endDate\": \"2026-06-24\",\n        \"uomCode\": \"EA\",\n        \"unitOfMeasure\": \"Each\",\n        \"itemQuantity\": 1,\n        \"unitPrice\": 0,\n        \"lineAmount\": 0,\n        \"lineAttributes\": {\n          \"contractLineDueDate\": \"2026-06-24\",\n          \"deliveryDueDate\": \"2026-04-10\",\n          \"glDivision\": \"100\",\n          \"glRevenueAccount\": \"40000\",\n          \"glProductLine\": \"1054\",\n          \"nonProjectRelatedContractLine\": \"No\",\n          \"avalaraTaxCode\": \"|Exempt|\",\n          \"fob\": \"FOB ORIGIN\",\n          \"endCountry\": \"US\",\n          \"freightTerms\": \"NA\",\n          \"shippingInstructions\": \"Notify Maj Townsend one week prior. Army requests we ship-in-place, see language on page 2. WAWF required.\",\n          \"partialShipmentFlag\": \"Yes\",\n          \"customerAcceptanceInspection\": \"WAWF - Origin\"\n        }\n      }\n    ]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{transformSvcBaseUrl}}/transform-pipeline",
+              "host": [
+                "{{transformSvcBaseUrl}}"
+              ],
+              "path": [
+                "transform-pipeline"
+              ]
+            },
+            "description": "The demo payoff. Calls transformation-svc's real entry point (the same one a CRM/Salesforce caller would hit), resolving {{demoPipelineId}} to its attached step(s) and field_mapping rows, and returns the transformed Oracle Fusion contract body -- including every demo_* field showing its transform_type applied."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "New Request",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": ""
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "configApiBaseUrl",
+      "value": "http://localhost:8010"
+    },
+    {
+      "key": "mockOracleBaseUrl",
+      "value": "http://localhost:9010"
+    },
+    {
+      "key": "clientId",
+      "value": "demo-extraction-client"
+    },
+    {
+      "key": "tokenTargetId",
+      "value": "demo-extraction-client-token"
+    },
+    {
+      "key": "contractTargetId",
+      "value": "demo-extraction-client-contracts"
+    },
+    {
+      "key": "pipelineId",
+      "value": "demo-extraction-award-to-contract-v1"
+    },
+    {
+      "key": "fetchTokenStepPk",
+      "value": ""
+    },
+    {
+      "key": "createContractStepPk",
+      "value": ""
+    },
+    {
+      "key": "bearer_token_036m"
+    }
+  ]
+}
