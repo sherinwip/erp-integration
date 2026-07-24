@@ -1,8 +1,8 @@
 import { request } from './index.js';
 
 export const listTargets = (clientId) => {
-  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
-  return request({ url: `/targets${qs}` });
+  const qs = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+  return request({ url: `/targets${qs}`, list: true });
 };
 export const getTarget = (id) => request({ url: `/targets/${id}` });
 export const createTarget = (data) => request({ url: '/targets', method: 'POST', body: data });

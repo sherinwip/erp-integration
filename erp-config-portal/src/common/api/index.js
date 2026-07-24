@@ -1,6 +1,11 @@
-const BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000') + '/api/v1';
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000') + '/client-config/api/v1/erp';
 
-export async function request({ url, method = 'GET', body } = {}) {
+// Backend wraps every response in a ResponseDto/TMErrorDto envelope
+// ({ data } for a single object, { data_list } for a collection, { message }
+// on error) instead of returning bare JSON. Field names are already
+// snake_case on the wire (every DTO declares an explicit @JsonProperty),
+// matching this frontend's convention, so no case conversion is needed.
+export async function request({ url, method = 'GET', body, list = false } = {}) {
   const opts = {
     method,
     headers: { 'Content-Type': 'application/json' },
@@ -9,11 +14,14 @@ export async function request({ url, method = 'GET', body } = {}) {
 
   const res = await fetch(`${BASE}${url}`, opts);
 
-  if (res.status === 204) return null;
+  if (res.status === 204) return list ? [] : null;
 
-  const json = await res.json().catch(() => null);
+  const envelope = await res.json().catch(() => null);
+
   if (!res.ok) {
-    throw new Error(json?.detail ?? `HTTP ${res.status}`);
+    throw new Error(envelope?.message ?? `HTTP ${res.status}`);
   }
-  return json;
+  if (!envelope) return list ? [] : null;
+
+  return list ? (envelope.data_list ?? []) : (envelope.data ?? null);
 }

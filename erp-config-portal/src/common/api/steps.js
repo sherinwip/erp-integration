@@ -2,8 +2,8 @@ import { request } from './index.js';
 
 // steps === workflows in the UI
 export const listSteps = (clientId) => {
-  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
-  return request({ url: `/steps${qs}` });
+  const qs = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+  return request({ url: `/steps${qs}`, list: true });
 };
 export const getStep = (stepPk) => request({ url: `/steps/${stepPk}` });
 export const createStep = (data) => request({ url: '/steps', method: 'POST', body: data });
