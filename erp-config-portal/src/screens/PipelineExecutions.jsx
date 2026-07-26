@@ -298,7 +298,7 @@ function PipelineExecutions() {
   return (
     <div className="grid w-full gap-4 xl:grid-cols-[0.45fr_0.55fr]">
       {/* ── Left: Run list ── */}
-      <div className="rounded-[28px] border border-outline-variant bg-white shadow-sm">
+      <div className="min-w-0 overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Executions</p>
@@ -408,7 +408,7 @@ function PipelineExecutions() {
       </div>
 
       {/* ── Right: Run detail + steps ── */}
-      <div className="rounded-[28px] border border-outline-variant bg-white shadow-sm">
+      <div className="min-w-0 overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
         {!selectedRun ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 py-20 text-center text-slate-400">
             <span className="material-symbols-outlined text-4xl">playlist_play</span>
@@ -434,7 +434,7 @@ function PipelineExecutions() {
                     )}
                   </div>
                   {selectedRun.pipeline_fail_reason && (
-                    <div className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
+                    <div className="mt-2 break-words rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
                       <span className="font-semibold">Failure reason: </span>
                       {selectedRun.pipeline_fail_reason}
                     </div>
