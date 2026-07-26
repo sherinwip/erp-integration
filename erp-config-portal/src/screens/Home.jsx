@@ -6,12 +6,13 @@ import ViewEditPipeline from './ViewEditPipeline';
 import TargetSystems from './TargetSystems';
 import ManageClients from './ManageClients';
 import PipelineExecutions from './PipelineExecutions';
+import OperationsDashboard from './OperationsDashboard';
 import LeftPanel from '../components/LeftPanel';
 import { useClient } from '../common/ClientContext.jsx';
 
 function Home() {
   const { clients, activeClientId, setActiveClientId, loading: clientLoading } = useClient();
-  const [activeScreen, setActiveScreen] = useState('WorkflowList');
+  const [activeScreen, setActiveScreen] = useState('OperationsDashboard');
   const [selectedStepPk, setSelectedStepPk] = useState(null);
   const [selectedPipelineId, setSelectedPipelineId] = useState(null);
 
@@ -42,6 +43,7 @@ function Home() {
       case 'TargetSystems': return 'Target Systems';
       case 'ManageClients': return 'Manage Clients';
       case 'PipelineExecutions': return 'Pipeline Executions';
+      case 'OperationsDashboard': return 'Operations Dashboard';
       default: return 'ConfigSys';
     }
   };
@@ -62,6 +64,8 @@ function Home() {
         return <ManageClients />;
       case 'PipelineExecutions':
         return <PipelineExecutions />;
+      case 'OperationsDashboard':
+        return <OperationsDashboard />;
       default:
         return <WorkflowList onOpenWorkflow={openWorkflowEditor} />;
     }
