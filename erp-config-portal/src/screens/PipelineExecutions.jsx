@@ -144,6 +144,39 @@ function StepDetail({ step, onClose }) {
   );
 }
 
+// ── Date filter helpers ─────────────────────────────────────────────────────
+function startOfDay(d) {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+function startOfWeek(d) {
+  const r = startOfDay(d);
+  r.setDate(r.getDate() - r.getDay());
+  return r;
+}
+function startOfMonth(d) {
+  const r = startOfDay(d);
+  r.setDate(1);
+  return r;
+}
+
+const DATE_PRESETS = [
+  { key: '', label: 'All Time' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'custom', label: 'Custom' },
+];
+
+function getPresetRange(key) {
+  const now = new Date();
+  if (key === 'today') return { from: startOfDay(now), to: null };
+  if (key === 'week') return { from: startOfWeek(now), to: null };
+  if (key === 'month') return { from: startOfMonth(now), to: null };
+  return null;
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 function PipelineExecutions() {
   const [runs, setRuns] = useState([]);
@@ -151,6 +184,9 @@ function PipelineExecutions() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [datePreset, setDatePreset] = useState('');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   // Selected run & its steps
   const [selectedRun, setSelectedRun] = useState(null);
@@ -187,14 +223,35 @@ function PipelineExecutions() {
         (r) =>
           String(r.run_id).includes(q) ||
           (r.pipeline_id ?? '').toLowerCase().includes(q) ||
-          (r.raw_payload_id ?? '').toLowerCase().includes(q),
+          String(r.raw_payload_id ?? '').includes(q),
       );
     }
     if (statusFilter) {
       list = list.filter((r) => (r.status ?? '').toLowerCase() === statusFilter.toLowerCase());
     }
+    if (datePreset && datePreset !== 'custom') {
+      const range = getPresetRange(datePreset);
+      if (range) {
+        list = list.filter((r) => {
+          if (!r.created_at) return false;
+          const t = new Date(r.created_at);
+          return t >= range.from;
+        });
+      }
+    }
+    if (datePreset === 'custom') {
+      if (customFrom) {
+        const from = new Date(customFrom);
+        list = list.filter((r) => r.created_at && new Date(r.created_at) >= from);
+      }
+      if (customTo) {
+        const to = new Date(customTo);
+        to.setHours(23, 59, 59, 999);
+        list = list.filter((r) => r.created_at && new Date(r.created_at) <= to);
+      }
+    }
     return list;
-  }, [runs, search, statusFilter]);
+  }, [runs, search, statusFilter, datePreset, customFrom, customTo]);
 
   const selectRun = (run) => {
     setSelectedRun(run);
@@ -257,24 +314,61 @@ function PipelineExecutions() {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-2 border-b border-outline-variant px-5 py-3">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search run ID / pipeline…"
-            className="flex-1 rounded-2xl border border-outline-variant bg-white px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-2xl border border-outline-variant bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-primary">
-            <option value="">All</option>
-            {distinctStatuses.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+        <div className="flex flex-col gap-2 border-b border-outline-variant px-5 py-3">
+          <div className="flex gap-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search run ID / pipeline…"
+              className="flex-1 rounded-2xl border border-outline-variant bg-white px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-2xl border border-outline-variant bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-primary">
+              <option value="">All Status</option>
+              {distinctStatuses.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date preset pills */}
+          <div className="flex flex-wrap gap-1.5">
+            {DATE_PRESETS.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => { setDatePreset(p.key); setCustomFrom(''); setCustomTo(''); }}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  datePreset === p.key
+                    ? 'bg-primary text-white'
+                    : 'border border-outline-variant bg-white text-slate-600 hover:bg-slate-50'
+                }`}>
+                {p.label}
+              </button>
             ))}
-          </select>
+          </div>
+
+          {/* Custom date inputs */}
+          {datePreset === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="rounded-2xl border border-outline-variant bg-white px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-primary"
+              />
+              <span className="text-xs text-slate-400">to</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="rounded-2xl border border-outline-variant bg-white px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-primary"
+              />
+            </div>
+          )}
         </div>
 
         <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
