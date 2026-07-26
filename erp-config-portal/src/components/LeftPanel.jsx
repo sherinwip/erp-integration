@@ -1,16 +1,17 @@
 import React from 'react';
+import logo from '../assets/tm-logo.png';
 
 function LeftPanel({ activeScreen, setActiveScreen, onCreateWorkflow }) {
   return (
     <aside className="fixed bottom-0 left-0 top-16 flex w-64 flex-col border-r border-outline-variant bg-white py-5 px-4 shadow-sm">
       <div className="mb-6">
         <div className="flex items-center gap-3 rounded-3xl bg-surface-container-low px-3 py-3 shadow-sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-3xl bg-primary text-white">
-            <span className="material-symbols-outlined text-lg">transform</span>
-          </div>
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10"> 
+              <img src={logo} alt="Logo" className="h-11 w-11" />
+            </span>
           <div>
-            <div className="text-base font-semibold text-slate-900">MapEngine</div>
-            <div className="text-xs text-slate-500">Active Environment</div>
+            <div className="text-base font-semibold text-slate-900">ERP Integration</div>
+            <div className="text-xs text-slate-500">by TechnoMile</div>
           </div>
         </div>
       </div>

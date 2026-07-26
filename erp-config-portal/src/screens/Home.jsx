@@ -74,8 +74,8 @@ function Home() {
   return (
     <div className="h-screen overflow-hidden bg-surface text-on-surface">
       <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-outline-variant bg-surface px-margin-desktop font-body-md text-body-md">
-        <div className="flex items-center gap-xl">
-          <span className="font-display-lg text-display-lg font-bold text-primary left-3">Integration Config</span>
+        <div className="flex items-center gap-xl px-3">
+          <span className="font-display-lg text-display-lg font-bold text-primary">ERP Integration Portal</span>
         </div>
 
         <div className="flex items-center gap-md">
