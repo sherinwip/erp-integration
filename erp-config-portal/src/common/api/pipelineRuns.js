@@ -1,7 +1,10 @@
 import { request } from './index.js';
 
-export const listPipelineRuns = (pipelineId) => {
-  const qs = pipelineId ? `?pipelineId=${encodeURIComponent(pipelineId)}` : '';
+export const listPipelineRuns = (clientId, pipelineId) => {
+  const params = new URLSearchParams();
+  if (clientId) params.set('clientId', clientId);
+  if (pipelineId) params.set('pipelineId', pipelineId);
+  const qs = params.toString() ? `?${params.toString()}` : '';
   return request({ url: `/pipeline-runs${qs}`, list: true });
 };
 

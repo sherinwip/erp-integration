@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useClient } from '../common/ClientContext.jsx';
 import {
   listPipelineRuns,
   getPipelineRunSteps,
@@ -179,6 +180,7 @@ function getPresetRange(key) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 function PipelineExecutions() {
+  const { activeClientId } = useClient();
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -205,11 +207,14 @@ function PipelineExecutions() {
   const loadRuns = useCallback(() => {
     setLoading(true);
     setError(null);
-    listPipelineRuns()
+    setRuns([]);
+    setSelectedRun(null);
+    setSteps([]);
+    listPipelineRuns(activeClientId)
       .then(setRuns)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [activeClientId]);
 
   useEffect(() => {
     loadRuns();
@@ -434,7 +439,7 @@ function PipelineExecutions() {
                     )}
                   </div>
                   {selectedRun.pipeline_fail_reason && (
-                    <div className="mt-2 break-words rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
+                    <div className="mt-2 wrap-break-word rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
                       <span className="font-semibold">Failure reason: </span>
                       {selectedRun.pipeline_fail_reason}
                     </div>
