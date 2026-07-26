@@ -5,6 +5,7 @@ import PipelineList from './PipelineList';
 import ViewEditPipeline from './ViewEditPipeline';
 import TargetSystems from './TargetSystems';
 import ManageClients from './ManageClients';
+import PipelineExecutions from './PipelineExecutions';
 import LeftPanel from '../components/LeftPanel';
 import { useClient } from '../common/ClientContext.jsx';
 
@@ -40,6 +41,7 @@ function Home() {
       case 'ViewEditPipeline': return selectedPipelineId ? 'Edit Pipeline' : 'New Pipeline';
       case 'TargetSystems': return 'Target Systems';
       case 'ManageClients': return 'Manage Clients';
+      case 'PipelineExecutions': return 'Pipeline Executions';
       default: return 'ConfigSys';
     }
   };
@@ -58,6 +60,8 @@ function Home() {
         return <TargetSystems />;
       case 'ManageClients':
         return <ManageClients />;
+      case 'PipelineExecutions':
+        return <PipelineExecutions />;
       default:
         return <WorkflowList onOpenWorkflow={openWorkflowEditor} />;
     }

@@ -1,4 +1,5 @@
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000') + '/client-config/api/v1/erp';
+const AUTHORIZATION_TOKEN = import.meta.env.VITE_AUTHORIZATION_TOKEN ?? import.meta.env.AUTHORIZATION_TOKEN ?? 'VZZZZ';
 
 // Backend wraps every response in a ResponseDto/TMErrorDto envelope
 // ({ data } for a single object, { data_list } for a collection, { message }
@@ -8,7 +9,9 @@ const BASE = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000') + '/
 export async function request({ url, method = 'GET', body, list = false } = {}) {
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      "Authorization": `Bearer ${AUTHORIZATION_TOKEN}`,
+      'Content-Type': 'application/json' },
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
 

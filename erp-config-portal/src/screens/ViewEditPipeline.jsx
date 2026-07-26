@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useClient } from '../common/ClientContext.jsx';
 import { listSteps } from '../common/api/steps.js';
 import { getPipeline, getPipelineSteps, updatePipeline } from '../common/api/pipelines.js';
-import { attachStep, detachStep } from '../common/api/pipelineSteps.js';
+import { attachStep, detachStep, updatePipelineStep } from '../common/api/pipelineSteps.js';
 
 function ViewEditPipeline({ pipelineId, onBack }) {
   const { activeClientId } = useClient();
   const [pipeline, setPipeline] = useState(null);
-  const [pipelineSteps, setPipelineSteps] = useState([]);   // [{pipeline_step_pk, step_pk, seq}]
+  const [pipelineSteps, setPipelineSteps] = useState([]);   // [{pipeline_step_pk, step_pk, seq, rerun_on_reply}]
   const [allSteps, setAllSteps] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -53,7 +53,7 @@ function ViewEditPipeline({ pipelineId, onBack }) {
   const addStepToPipeline = async (stepPk) => {
     const maxSeq = pipelineSteps.reduce((max, ps) => Math.max(max, ps.seq), 0);
     try {
-      const newPs = await attachStep({ pipeline_id: pipeline.pipeline_id, step_pk: stepPk, seq: maxSeq + 1 });
+      const newPs = await attachStep({ pipeline_id: pipeline.pipeline_id, step_pk: stepPk, seq: maxSeq + 1, rerun_on_reply: false });
       setPipelineSteps((c) => [...c, newPs]);
     } catch (err) {
       setError(err.message);
@@ -78,6 +78,18 @@ function ViewEditPipeline({ pipelineId, onBack }) {
     setOrderChanged(true);
   };
 
+  const toggleRerunOnReply = async (pipelineStepPk, currentValue) => {
+    const next = !currentValue;
+    try {
+      const updated = await updatePipelineStep(pipelineStepPk, { rerun_on_reply: next });
+      setPipelineSteps((c) =>
+        c.map((ps) => (ps.pipeline_step_pk === pipelineStepPk ? { ...ps, rerun_on_reply: updated.rerun_on_reply ?? next } : ps)),
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   // Delete all, recreate with new seq to avoid unique-constraint violations
   const saveOrder = async () => {
     setSavingOrder(true);
@@ -87,7 +99,7 @@ function ViewEditPipeline({ pipelineId, onBack }) {
       await Promise.all(snapshot.map((ps) => detachStep(ps.pipeline_step_pk)));
       const created = await Promise.all(
         snapshot.map((ps, idx) =>
-          attachStep({ pipeline_id: pipeline.pipeline_id, step_pk: ps.step_pk, seq: idx + 1 }),
+          attachStep({ pipeline_id: pipeline.pipeline_id, step_pk: ps.step_pk, seq: idx + 1, rerun_on_reply: ps.rerun_on_reply ?? false }),
         ),
       );
       setPipelineSteps([...created].sort((a, b) => a.seq - b.seq));
@@ -222,7 +234,27 @@ function ViewEditPipeline({ pipelineId, onBack }) {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        {/* Rerun on Reply toggle */}
+                        <label className="flex cursor-pointer items-center gap-1.5">
+                          <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Rerun on Reply
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={!!ps.rerun_on_reply}
+                            onClick={() => toggleRerunOnReply(ps.pipeline_step_pk, ps.rerun_on_reply)}
+                            className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                              ps.rerun_on_reply ? 'bg-primary' : 'bg-slate-200'
+                            }`}>
+                            <span
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                ps.rerun_on_reply ? 'translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </label>
                         <button
                           onClick={() => movePipelineStep(index, -1)}
                           className="rounded-2xl border border-outline-variant px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-100">↑</button>

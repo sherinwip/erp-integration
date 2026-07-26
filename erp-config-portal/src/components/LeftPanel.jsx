@@ -51,6 +51,17 @@ function LeftPanel({ activeScreen, setActiveScreen, onCreateWorkflow }) {
           <span>Target Systems</span>
         </button>
 
+        <button
+          onClick={() => setActiveScreen('PipelineExecutions')}
+          className={`flex w-full items-center gap-3 rounded-3xl px-3 py-2 text-xs font-semibold transition ${
+            activeScreen === 'PipelineExecutions'
+              ? 'bg-primary/5 text-primary'
+              : 'text-slate-600 hover:bg-surface-container-low'
+          }`}>
+          <span className="material-symbols-outlined text-sm">monitor_heart</span>
+          <span>Executions</span>
+        </button>
+
         <div className="pt-3">
           <button
             onClick={onCreateWorkflow}
