@@ -27,5 +27,11 @@ export const getPipelineRunExtracts = (runId) => request({ url: `/pipeline-runs/
 export const getStepExtracts = (runId, stepPk) =>
   request({ url: `/pipeline-runs/${runId}/steps/${stepPk}/extracts`, list: true });
 
-export const rerunPipeline = (runId) =>
-  request({ url: `/pipeline-runs/${runId}/rerun`, method: 'POST' });
+export const getRawPayload = (runId) => request({ url: `/pipeline-runs/${runId}/raw-payload` });
+
+export const replayPipeline = (runId, source) =>
+  request({
+    url: `/pipeline-runs/${runId}/replay`,
+    method: 'POST',
+    body: source !== undefined ? { source } : {},
+  });

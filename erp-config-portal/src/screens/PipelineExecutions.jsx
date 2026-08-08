@@ -4,6 +4,8 @@ import {
   listPipelineRuns,
   getPipelineRunSteps,
   getStepExtracts,
+  getRawPayload,
+  replayPipeline,
 } from '../common/api/pipelineRuns.js';
 
 const STATUS_COLORS = {
@@ -145,6 +147,113 @@ function StepDetail({ step, onClose }) {
   );
 }
 
+// ── Replay pipeline modal ─────────────────────────────────────────────────────
+function ReplayPipelineModal({ run, onClose, onReplayed }) {
+  const [payloadText, setPayloadText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [jsonError, setJsonError] = useState(null);
+  const [replaying, setReplaying] = useState(false);
+  const [replayError, setReplayError] = useState(null);
+  const [replayResult, setReplayResult] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setLoadError(null);
+    getRawPayload(run.run_id)
+      .then((raw) => setPayloadText(JSON.stringify(raw?.payload ?? {}, null, 2)))
+      .catch((err) => setLoadError(err.message))
+      .finally(() => setLoading(false));
+  }, [run.run_id]);
+
+  const handleSubmit = async () => {
+    let parsedSource;
+    try {
+      parsedSource = JSON.parse(payloadText);
+      setJsonError(null);
+    } catch (err) {
+      setJsonError(`Payload is not valid JSON: ${err.message}`);
+      return;
+    }
+    setReplaying(true);
+    setReplayError(null);
+    setReplayResult(null);
+    try {
+      const result = await replayPipeline(run.run_id, parsedSource);
+      setReplayResult(result);
+      onReplayed();
+    } catch (err) {
+      setReplayError(err.message);
+    } finally {
+      setReplaying(false);
+    }
+  };
+
+  const replaySucceeded = replayResult && (replayResult.status ?? '').toLowerCase() === 'completed';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="flex w-full max-w-2xl flex-col rounded-3xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-outline-variant px-6 py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Replay Pipeline</p>
+            <h2 className="mt-1 truncate text-base font-semibold text-slate-900">
+              Run #{run.run_id} · {run.pipeline_id}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Edit the original inbound payload below if it needs correcting, then replay. The
+              step that failed (and everything downstream of it) will re-execute using this
+              payload.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="ml-4 shrink-0 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </div>
+
+        <div className="px-6 py-4">
+          {loading && <p className="text-sm text-slate-400">Loading original payload…</p>}
+          {loadError && <p className="text-sm text-red-600">{loadError}</p>}
+          {!loading && !loadError && (
+            <textarea
+              value={payloadText}
+              onChange={(e) => setPayloadText(e.target.value)}
+              rows={16}
+              spellCheck={false}
+              className="w-full rounded-xl border border-outline-variant bg-slate-50 p-4 font-mono text-xs text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+            />
+          )}
+          {jsonError && <p className="mt-2 text-xs text-red-600">{jsonError}</p>}
+          {replayError && <p className="mt-2 text-xs text-red-600">{replayError}</p>}
+          {replayResult && (
+            <p className={`mt-2 text-xs ${replaySucceeded ? 'text-emerald-600' : 'text-red-600'}`}>
+              Replay finished with status: <strong>{replayResult.status}</strong>
+              {replayResult.message ? ` — ${replayResult.message}` : ''}
+              {replayResult.error ? ` — ${replayResult.error}` : ''}
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-outline-variant px-6 py-3">
+          <button
+            onClick={onClose}
+            className="rounded-2xl border border-outline-variant px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+            Close
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading || !!loadError || replaying}
+            className="rounded-2xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50">
+            {replaying ? 'Replaying…' : 'Replay Pipeline'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Date filter helpers ─────────────────────────────────────────────────────
 function startOfDay(d) {
   const r = new Date(d);
@@ -199,10 +308,8 @@ function PipelineExecutions() {
   // Step detail drawer
   const [selectedStep, setSelectedStep] = useState(null);
 
-  // Re-run state
-  const [rerunning, setRerunning] = useState(false);
-  const [rerunError, setRerunError] = useState(null);
-  const [rerunSuccess, setRerunSuccess] = useState(false);
+  // Replay pipeline modal
+  const [showReplayModal, setShowReplayModal] = useState(false);
 
   const loadRuns = useCallback(() => {
     setLoading(true);
@@ -258,36 +365,35 @@ function PipelineExecutions() {
     return list;
   }, [runs, search, statusFilter, datePreset, customFrom, customTo]);
 
-  const selectRun = (run) => {
-    setSelectedRun(run);
+  const loadStepsForRun = (runId) => {
     setSteps([]);
     setStepsError(null);
-    setRerunError(null);
-    setRerunSuccess(false);
     setStepsLoading(true);
-    getPipelineRunSteps(run.run_id)
+    getPipelineRunSteps(runId)
       .then(setSteps)
       .catch((err) => setStepsError(err.message))
       .finally(() => setStepsLoading(false));
   };
 
-  const handleRerun = async () => {
+  const selectRun = (run) => {
+    setSelectedRun(run);
+    loadStepsForRun(run.run_id);
+  };
+
+  // After a replay attempt, the run's status/steps may have changed --
+  // refresh both the list (for its status badge) and the currently open
+  // run's step detail, without losing the modal so the user can see the
+  // result message.
+  const handleReplayed = () => {
     if (!selectedRun) return;
-    setRerunning(true);
-    setRerunError(null);
-    setRerunSuccess(false);
-    try {
-      // POST to re-run endpoint; refresh the list once triggered
-      await import('../common/api/pipelineRuns.js').then(({ rerunPipeline }) =>
-        rerunPipeline(selectedRun.run_id),
-      );
-      setRerunSuccess(true);
-      loadRuns();
-    } catch (err) {
-      setRerunError(err.message);
-    } finally {
-      setRerunning(false);
-    }
+    loadStepsForRun(selectedRun.run_id);
+    listPipelineRuns(activeClientId)
+      .then((updatedRuns) => {
+        setRuns(updatedRuns);
+        const updatedSelected = updatedRuns.find((r) => r.run_id === selectedRun.run_id);
+        if (updatedSelected) setSelectedRun(updatedSelected);
+      })
+      .catch(() => {});
   };
 
   const isFailed = (run) => {
@@ -446,23 +552,16 @@ function PipelineExecutions() {
                   )}
                 </div>
 
-                {/* Re-Run button */}
+                {/* Replay button */}
                 {isFailed(selectedRun) && (
                   <button
-                    onClick={handleRerun}
-                    disabled={rerunning}
-                    className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50">
+                    onClick={() => setShowReplayModal(true)}
+                    className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700">
                     <span className="material-symbols-outlined text-sm">replay</span>
-                    {rerunning ? 'Re-Running…' : 'Re-Run Pipeline'}
+                    Replay Pipeline
                   </button>
                 )}
               </div>
-              {rerunError && (
-                <p className="mt-2 text-xs text-red-600">{rerunError}</p>
-              )}
-              {rerunSuccess && (
-                <p className="mt-2 text-xs text-emerald-600">Pipeline re-run triggered successfully.</p>
-              )}
             </div>
 
             {/* Steps list */}
@@ -531,6 +630,15 @@ function PipelineExecutions() {
       {/* Step detail drawer */}
       {selectedStep && (
         <StepDetail step={selectedStep} onClose={() => setSelectedStep(null)} />
+      )}
+
+      {/* Replay pipeline modal */}
+      {showReplayModal && selectedRun && (
+        <ReplayPipelineModal
+          run={selectedRun}
+          onClose={() => setShowReplayModal(false)}
+          onReplayed={handleReplayed}
+        />
       )}
     </div>
   );
