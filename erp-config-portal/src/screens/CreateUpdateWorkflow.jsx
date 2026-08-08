@@ -96,6 +96,7 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
   const [targets, setTargets] = useState([]);
   const [selectedTargetId, setSelectedTargetId] = useState("");
   const [showNewTarget, setShowNewTarget] = useState(false);
+  const [targetConfigCollapsed, setTargetConfigCollapsed] = useState(false);
   const [newTargetName, setNewTargetName] = useState("");
   const [newTargetBaseUrl, setNewTargetBaseUrl] = useState("");
   const [newTargetAuthType, setNewTargetAuthType] = useState("apikey");
@@ -108,6 +109,9 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
 
   // Transformation rules (TRANSFORM_POST only)
   const [rules, setRules] = useState([]);
+  const [expandedRuleId, setExpandedRuleId] = useState(null);
+  // {rule, x, y} — rendered as a fixed portal so it escapes overflow:hidden panels
+  const [ruleTooltip, setRuleTooltip] = useState(null);
 
   // Local-only source JSON preview
   const [sourceJson, setSourceJson] = useState(INITIAL_SOURCE);
@@ -179,8 +183,11 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
   // ── rule handlers ─────────────────────────────────────────────────────────
   const handleRuleChange = (index, field, value) =>
     setRules((c) => c.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
-  const addRule = () =>
-    setRules((c) => [...c, { id: `rule-new-${Date.now()}`, kind: "none", source: "", target: "", params: "" }]);
+  const addRule = () => {
+    const id = `rule-new-${Date.now()}`;
+    setRules((c) => [...c, { id, kind: "none", source: "", target: "", params: "" }]);
+    setExpandedRuleId(id);
+  };
   const removeRule = (index) => setRules((c) => c.filter((_, i) => i !== index));
 
   // ── pair helpers ──────────────────────────────────────────────────────────
@@ -446,12 +453,32 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
   );
 
   // ── inline Target Config panel ────────────────────────────────────────────
+  const selectedTarget = targets.find((t) => t.target_id === selectedTargetId);
+  const targetSummaryName = showNewTarget ? (newTargetName.trim() || "New target") : (selectedTarget?.target_name || "No target selected");
+  const targetSummaryUrl = showNewTarget ? (newTargetBaseUrl.trim() || "—") : (selectedTarget?.base_url || "—");
+  const targetSummaryUri = stepPath || "/";
   const targetConfigPanel = (
-    <div className="flex flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
-      <div className="border-b border-outline-variant bg-surface-container-low px-5 py-4">
-        <p className="text-sm font-semibold text-slate-600">Target Config</p>
+    <div className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm ${targetConfigCollapsed ? "shrink-0" : "h-full flex-1"}`}>
+      <div className="flex shrink-0 items-center gap-2 border-b border-outline-variant bg-surface-container-low px-5 py-4">
+        <button type="button" onClick={() => setTargetConfigCollapsed((c) => !c)}
+          className="shrink-0 rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
+          <span className="material-symbols-outlined text-[18px]">
+            {targetConfigCollapsed ? "chevron_right" : "expand_more"}
+          </span>
+        </button>
+        <p className="shrink-0 text-sm font-semibold text-slate-600">Target Config</p>
+        {targetConfigCollapsed && (
+          <div className="ml-2 flex min-w-0 flex-1 items-center gap-2 text-xs">
+            <span className="truncate font-medium text-slate-700">{targetSummaryName}</span>
+            <span className="text-slate-300">·</span>
+            <span className="truncate text-slate-500">{targetSummaryUrl}</span>
+            <span className="text-slate-300">·</span>
+            <span className="truncate text-slate-500">{targetSummaryUri}</span>
+          </div>
+        )}
       </div>
-      <div className="flex-1 space-y-4 overflow-auto p-5">
+      {!targetConfigCollapsed && (
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
 
         {/* ── Target System selector ── */}
         <div className="space-y-2">
@@ -579,6 +606,7 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 
@@ -671,94 +699,130 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
   // ── Transformation & POST layout ──────────────────────────────────────────
   return (
     <>
-    <div className="flex w-full flex-col gap-4">
+    <div className="flex h-[calc(100vh-260px)] min-h-120 w-full flex-col gap-4">
       {headerBar}
-      <div className="grid w-full min-w-0 gap-4 xl:grid-cols-[minmax(0,0.65fr)_minmax(0,0.35fr)]">
+      <div className="grid w-full min-w-0 flex-1 gap-4 overflow-hidden xl:grid-cols-[minmax(0,0.65fr)_minmax(0,0.35fr)]">
 
         {/* Left: Source JSON + Transformation Rules */}
-        <div className="grid w-full min-w-0 gap-4 xl:grid-cols-[minmax(0,0.55fr)_minmax(0,0.45fr)]">
+        <div className="grid h-full min-h-0 w-full min-w-0 gap-4 xl:grid-cols-[minmax(0,0.55fr)_minmax(0,0.45fr)]">
           {/* Source JSON */}
-          <div className="flex h-[600px] w-full min-w-0 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
-            <div className="border-b border-outline-variant bg-surface-container-low px-5 py-4">
+          <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
+            <div className="shrink-0 border-b border-outline-variant bg-surface-container-low px-5 py-4">
               <span className="text-sm font-semibold text-slate-600">Source JSON (Preview)</span>
             </div>
-            <div className="flex-1 p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <textarea value={sourceJson} onChange={(e) => handleSourceJsonChange(e.target.value)}
-                className="h-full min-h-[360px] w-full resize-none rounded-3xl border border-slate-700 bg-slate-950 px-4 py-4 font-code-md text-[13px] text-slate-100 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20"
+                className="h-full min-h-50 w-full resize-none rounded-3xl border border-slate-700 bg-slate-950 px-4 py-4 font-code-md text-[13px] text-slate-100 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20"
                 spellCheck={false} />
               {jsonError && <p className="mt-3 text-sm text-amber-400">{jsonError}</p>}
             </div>
           </div>
 
           {/* Transformation Rules */}
-          <div className="flex h-[600px] w-full min-w-0 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low px-4 py-3">
+          <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
+            <div className="flex shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container-low px-5 py-4">
               <span className="text-sm font-semibold text-slate-600">Transformation Rules</span>
               <button type="button" onClick={addRule}
                 className="rounded-2xl bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-95">
                 Add Rule
               </button>
             </div>
-            <div className="flex-1 space-y-3 overflow-auto p-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
               {rules.length === 0 && (
                 <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-xs text-slate-500">
                   No rules yet — add one to start mapping fields.
                 </div>
               )}
-              {rules.map((rule, index) => (
-                <div key={rule.id} className="rounded-3xl border border-outline-variant bg-slate-50 p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <select value={rule.kind} onChange={(e) => handleRuleChange(index, "kind", e.target.value)}
-                      className="rounded-2xl border border-outline-variant bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
-                      {UI_RULE_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-                    </select>
-                    <button type="button" onClick={() => removeRule(index)}
-                      className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
-                      <span className="material-symbols-outlined text-[16px]">close</span>
+              {rules.map((rule, index) => {
+                const isExpanded = expandedRuleId === rule.id;
+                return (
+                  <div key={rule.id} className={`rounded-3xl border bg-slate-50 transition-colors ${isExpanded ? "border-primary/40 shadow-sm" : "border-outline-variant"}`}>
+                    {/* ── header row — click toggles expand/collapse ── */}
+                    <button
+                      type="button"
+                      className={`flex w-full items-center gap-2 rounded-3xl p-3 text-left transition-colors ${isExpanded ? "rounded-b-none" : "hover:bg-slate-100/60"}`}
+                      onClick={() => setExpandedRuleId(isExpanded ? null : rule.id)}>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${getRuleBadgeClass(rule.kind)}`}>
+                        {rule.kind}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{rule.source || "—"}</span>
+                      <span className="material-symbols-outlined shrink-0 text-sm text-slate-400">arrow_forward</span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">{rule.target || "—"}</span>
+                      {/* "i" tooltip — onMouseEnter/Leave feeds the fixed portal tooltip */}
+                      <button type="button" aria-label="Rule details"
+                        className="shrink-0 flex h-5 w-5 cursor-default items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-500 transition hover:bg-primary/10 hover:text-primary"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseEnter={(e) => {
+                          const r = e.currentTarget.getBoundingClientRect();
+                          setRuleTooltip({ rule, x: r.right + 8, y: r.top });
+                        }}
+                        onMouseLeave={() => setRuleTooltip(null)}>
+                        i
+                      </button>
+                      <span className="material-symbols-outlined shrink-0 text-[16px] text-slate-400">
+                        {isExpanded ? "keyboard_arrow_up" : "keyboard_arrow_down"}
+                      </span>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); removeRule(index); }}
+                        className="shrink-0 rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-red-500">
+                        <span className="material-symbols-outlined text-[16px]">close</span>
+                      </button>
                     </button>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-semibold uppercase text-slate-500">
-                      {rule.kind === "CONST" ? "Constant Value" : "Source path"}
-                    </label>
-                    <input value={rule.source} onChange={(e) => handleRuleChange(index, "source", e.target.value)}
-                      placeholder={rule.kind === "CONST" ? "e.g. active" : "e.g. contract.name"}
-                      className="w-full rounded-2xl border border-outline bg-white px-2.5 py-2 text-xs text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-sm text-slate-400">arrow_forward</span>
-                      <label className="block whitespace-nowrap text-[10px] font-semibold uppercase text-slate-500">Target field</label>
-                      <input value={rule.target} onChange={(e) => handleRuleChange(index, "target", e.target.value)}
-                        placeholder="Target field"
-                        className="w-full rounded-2xl border border-outline bg-white px-2.5 py-2 text-xs text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
-                    </div>
-                    {TYPES_WITH_PARAMS.has(rule.kind) && (
-                      <div>
-                        <label className="block text-[10px] font-semibold uppercase text-slate-500">Params (JSON)</label>
-                        <input value={rule.params} onChange={(e) => handleRuleChange(index, "params", e.target.value)}
-                          placeholder={getParamsPlaceholder(rule.kind)}
-                          className="w-full rounded-2xl border border-outline bg-white px-2.5 py-2 font-mono text-[11px] text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                    {/* ── expanded edit form ── */}
+                    {isExpanded && (
+                      <div className="border-t border-outline-variant px-3 pb-3 pt-2">
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Function</span>
+                          <select value={rule.kind} onChange={(e) => handleRuleChange(index, "kind", e.target.value)}
+                            className="rounded-2xl border border-outline-variant bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
+                            {UI_RULE_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-[10px] font-semibold uppercase text-slate-500">
+                              {rule.kind === "CONST" ? "Constant Value" : "Source path"}
+                            </label>
+                            <input value={rule.source} onChange={(e) => handleRuleChange(index, "source", e.target.value)}
+                              placeholder={rule.kind === "CONST" ? "e.g. active" : "e.g. contract.name"}
+                              className="mt-1 w-full rounded-2xl border border-outline bg-white px-2.5 py-2 text-xs text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold uppercase text-slate-500">Target field</label>
+                            <input value={rule.target} onChange={(e) => handleRuleChange(index, "target", e.target.value)}
+                              placeholder="Target field"
+                              className="mt-1 w-full rounded-2xl border border-outline bg-white px-2.5 py-2 text-xs text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                          </div>
+                          {TYPES_WITH_PARAMS.has(rule.kind) && (
+                            <div>
+                              <label className="block text-[10px] font-semibold uppercase text-slate-500">Params (JSON)</label>
+                              <input value={rule.params} onChange={(e) => handleRuleChange(index, "params", e.target.value)}
+                                placeholder={getParamsPlaceholder(rule.kind)}
+                                className="mt-1 w-full rounded-2xl border border-outline bg-white px-2.5 py-2 font-mono text-[11px] text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                            </div>
+                          )}
+                        </div>
+                        <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${getRuleBadgeClass(rule.kind)}`}>
+                          {getRuleHelpText(rule.kind)}
+                        </div>
                       </div>
                     )}
                   </div>
-                  <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${getRuleBadgeClass(rule.kind)}`}>
-                    {getRuleHelpText(rule.kind)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Right: Target Config + Output Preview */}
-        <div className="flex flex-col gap-4">
+        <div className="flex h-full min-h-0 min-w-0 flex-col gap-4">
           {targetConfigPanel}
           {/* Output Preview */}
-          <div className="flex flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
-            <div className="border-b border-outline-variant bg-surface-container-low px-5 py-4">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
+            <div className="shrink-0 border-b border-outline-variant bg-surface-container-low px-5 py-4">
               <span className="text-sm font-semibold text-slate-600">Output Preview</span>
             </div>
-            <div className="overflow-auto bg-slate-950 p-4">
-              <pre className="min-h-40 overflow-auto rounded-3xl border border-slate-800 bg-slate-950 p-4 font-code-md text-[12px] text-slate-100">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-950 p-4">
+              <pre className="whitespace-pre-wrap break-all rounded-3xl border border-slate-800 bg-slate-950 p-4 font-code-md text-[12px] text-slate-100">
                 {previewJson}
               </pre>
             </div>
@@ -767,6 +831,36 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
       </div>
     </div>
     {previewOverlay}
+    {/* Fixed tooltip portal — escapes all overflow:hidden/auto panels */}
+    {ruleTooltip && (
+      <div
+        className="pointer-events-none fixed z-9999 w-56 rounded-2xl border border-outline-variant bg-white p-3 shadow-xl"
+        style={{ top: ruleTooltip.y, left: ruleTooltip.x }}>
+        <div className="space-y-1.5 text-[11px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold uppercase tracking-wide text-slate-400" style={{ fontSize: "9px" }}>Function</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getRuleBadgeClass(ruleTooltip.rule.kind)}`}>{ruleTooltip.rule.kind}</span>
+          </div>
+          <div>
+            <span className="font-semibold uppercase tracking-wide text-slate-400" style={{ fontSize: "9px" }}>Source</span>
+            <p className="mt-0.5 break-all font-mono text-slate-700">{ruleTooltip.rule.source || "—"}</p>
+          </div>
+          <div>
+            <span className="font-semibold uppercase tracking-wide text-slate-400" style={{ fontSize: "9px" }}>Target</span>
+            <p className="mt-0.5 break-all font-mono text-slate-700">{ruleTooltip.rule.target || "—"}</p>
+          </div>
+          {ruleTooltip.rule.params ? (
+            <div>
+              <span className="font-semibold uppercase tracking-wide text-slate-400" style={{ fontSize: "9px" }}>Params</span>
+              <p className="mt-0.5 break-all font-mono text-slate-600">{ruleTooltip.rule.params}</p>
+            </div>
+          ) : null}
+          <p className={`mt-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${getRuleBadgeClass(ruleTooltip.rule.kind)}`}>
+            {getRuleHelpText(ruleTooltip.rule.kind)}
+          </p>
+        </div>
+      </div>
+    )}
     </>
   );
 }

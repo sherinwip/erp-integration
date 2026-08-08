@@ -68,21 +68,25 @@ function StatCard({ label, value, tone = 'default' }) {
 }
 
 function OperationsDashboard() {
-  const { activeClientId } = useClient();
+  const { clients } = useClient();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [datePreset, setDatePreset] = useState('');
+  // Dashboard has its own Client filter, independent of the header's
+  // "active client" (which scopes config-editing screens) -- '' means
+  // "All Clients", so the dashboard defaults to a cross-client aggregate.
+  const [selectedClientId, setSelectedClientId] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
     const from = getPresetFrom(datePreset);
-    getPipelineRunStats(activeClientId, undefined, from ? from.toISOString() : undefined, undefined)
+    getPipelineRunStats(selectedClientId, undefined, from ? from.toISOString() : undefined, undefined)
       .then(setStats)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [activeClientId, datePreset]);
+  }, [selectedClientId, datePreset]);
 
   useEffect(() => {
     load();
@@ -102,6 +106,20 @@ function OperationsDashboard() {
           <h2 className="mt-1 text-lg font-semibold text-slate-900">Operations Health</h2>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">Client</span>
+            <select
+              value={selectedClientId}
+              onChange={(e) => setSelectedClientId(e.target.value)}
+              className="rounded-2xl border border-outline-variant bg-white px-3 py-1.5 text-sm text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
+              <option value="">All Clients</option>
+              {clients.map((c) => (
+                <option key={c.client_id} value={c.client_id}>
+                  {c.client_name} ({c.client_id})
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {DATE_PRESETS.map((p) => (
               <button
