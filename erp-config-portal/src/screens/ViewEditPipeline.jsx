@@ -53,7 +53,7 @@ function ViewEditPipeline({ pipelineId, onBack }) {
   const addStepToPipeline = async (stepPk) => {
     const maxSeq = pipelineSteps.reduce((max, ps) => Math.max(max, ps.seq), 0);
     try {
-      const newPs = await attachStep({ pipeline_id: pipeline.pipeline_id, step_pk: stepPk, seq: maxSeq + 1, rerun_on_reply: false });
+      const newPs = await attachStep({ pipeline_id: pipeline.pipeline_id, step_pk: stepPk, seq: maxSeq + 1, rerun_on_replay: false });
       setPipelineSteps((c) => [...c, newPs]);
     } catch (err) {
       setError(err.message);
@@ -81,9 +81,9 @@ function ViewEditPipeline({ pipelineId, onBack }) {
   const toggleRerunOnReply = async (pipelineStepPk, currentValue) => {
     const next = !currentValue;
     try {
-      const updated = await updatePipelineStep(pipelineStepPk, { rerun_on_reply: next });
+      const updated = await updatePipelineStep(pipelineStepPk, { rerun_on_replay: next });
       setPipelineSteps((c) =>
-        c.map((ps) => (ps.pipeline_step_pk === pipelineStepPk ? { ...ps, rerun_on_reply: updated.rerun_on_reply ?? next } : ps)),
+        c.map((ps) => (ps.pipeline_step_pk === pipelineStepPk ? { ...ps, rerun_on_replay: updated.rerun_on_replay ?? next } : ps)),
       );
     } catch (err) {
       setError(err.message);
@@ -99,7 +99,7 @@ function ViewEditPipeline({ pipelineId, onBack }) {
       await Promise.all(snapshot.map((ps) => detachStep(ps.pipeline_step_pk)));
       const created = await Promise.all(
         snapshot.map((ps, idx) =>
-          attachStep({ pipeline_id: pipeline.pipeline_id, step_pk: ps.step_pk, seq: idx + 1, rerun_on_reply: ps.rerun_on_reply ?? false }),
+          attachStep({ pipeline_id: pipeline.pipeline_id, step_pk: ps.step_pk, seq: idx + 1, rerun_on_replay: ps.rerun_on_replay ?? false }),
         ),
       );
       setPipelineSteps([...created].sort((a, b) => a.seq - b.seq));
@@ -243,14 +243,14 @@ function ViewEditPipeline({ pipelineId, onBack }) {
                           <button
                             type="button"
                             role="switch"
-                            aria-checked={!!ps.rerun_on_reply}
-                            onClick={() => toggleRerunOnReply(ps.pipeline_step_pk, ps.rerun_on_reply)}
+                            aria-checked={!!ps.rerun_on_replay}
+                            onClick={() => toggleRerunOnReply(ps.pipeline_step_pk, ps.rerun_on_replay)}
                             className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                              ps.rerun_on_reply ? 'bg-primary' : 'bg-slate-200'
+                              ps.rerun_on_replay ? 'bg-primary' : 'bg-slate-200'
                             }`}>
                             <span
                               className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                                ps.rerun_on_reply ? 'translate-x-4' : 'translate-x-0'
+                                ps.rerun_on_replay ? 'translate-x-4' : 'translate-x-0'
                               }`}
                             />
                           </button>
