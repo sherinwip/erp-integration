@@ -7,5 +7,10 @@ export const listSteps = (clientId) => {
 };
 export const getStep = (stepPk) => request({ url: `/steps/${stepPk}` });
 export const createStep = (data) => request({ url: '/steps', method: 'POST', body: data });
-export const updateStep = (stepPk, data) => request({ url: `/steps/${stepPk}`, method: 'PATCH', body: data });
+export const updateStep = (stepPk, data) => {
+  const requestPayload = { url: `/steps/${stepPk}`, method: 'PATCH', body: data };
+  console.log('TEMP: modify step request being sent', requestPayload);
+  alert(`TEMP: modify step request being sent\n${JSON.stringify(requestPayload, null, 2)}`);
+  return request(requestPayload);
+};
 export const deleteStep = (stepPk) => request({ url: `/steps/${stepPk}`, method: 'DELETE' });

@@ -66,8 +66,8 @@ function PipelineList({ onOpenPipeline }) {
   };
 
   return (
-    <div className="grid w-full gap-4 xl:grid-cols-[0.45fr_0.55fr]">
-      <div className="rounded-[28px] border border-outline-variant bg-white shadow-sm">
+    <div className="grid h-full min-h-0 w-full flex-1 gap-4 xl:grid-cols-[0.45fr_0.55fr]">
+      <div className="flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Pipelines</p>
@@ -81,60 +81,62 @@ function PipelineList({ onOpenPipeline }) {
           </button>
         </div>
 
-        <div className="space-y-4 p-5">
-          <div className="rounded-3xl border border-outline-variant bg-slate-50 p-3">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search pipelines"
-              className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
-              type="text"
-            />
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-outline-variant bg-slate-50 p-3">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search pipelines"
+                className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                type="text"
+              />
+            </div>
 
-          {loading && <div className="py-8 text-center text-sm text-slate-500">Loading…</div>}
-          {error && <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">{error}</div>}
-          {!loading && !error && (
-            <div className="space-y-3">
-              {filtered.length ? (
-                filtered.map((pipeline) => (
-                  <button
-                    key={pipeline.pipeline_id}
-                    onClick={() => { setActivePipelineId(pipeline.pipeline_id); onOpenPipeline(pipeline.pipeline_id); }}
-                    className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
-                      pipeline.pipeline_id === activePipelineId
-                        ? 'border-primary/70 bg-primary/5'
-                        : 'border-outline-variant bg-slate-50 hover:bg-slate-100'
-                    }`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">{pipeline.pipeline_id}</div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {pipeline.source_system} · {pipeline.object_type} · {pipeline.pattern_id}
+            {loading && <div className="py-8 text-center text-sm text-slate-500">Loading…</div>}
+            {error && <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">{error}</div>}
+            {!loading && !error && (
+              <div className="space-y-3">
+                {filtered.length ? (
+                  filtered.map((pipeline) => (
+                    <button
+                      key={pipeline.pipeline_id}
+                      onClick={() => { setActivePipelineId(pipeline.pipeline_id); onOpenPipeline(pipeline.pipeline_id); }}
+                      className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+                        pipeline.pipeline_id === activePipelineId
+                          ? 'border-primary/70 bg-primary/5'
+                          : 'border-outline-variant bg-slate-50 hover:bg-slate-100'
+                      }`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">{pipeline.pipeline_id}</div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {pipeline.source_system} · {pipeline.object_type} · {pipeline.pattern_id}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${pipeline.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                            {pipeline.status}
+                          </span>
+                          {pipeline.pipeline_id === activePipelineId && (
+                            <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">
+                              Selected
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${pipeline.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                          {pipeline.status}
-                        </span>
-                        {pipeline.pipeline_id === activePipelineId && (
-                          <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">
-                            Selected
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                  {activeClientId
-                    ? 'No pipelines found. Create one to get started.'
-                    : 'Select a client to view pipelines.'}
-                </div>
-              )}
-            </div>
-          )}
+                    </button>
+                  ))
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    {activeClientId
+                      ? 'No pipelines found. Create one to get started.'
+                      : 'Select a client to view pipelines.'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

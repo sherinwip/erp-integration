@@ -13,16 +13,42 @@ const STATUS_COLORS = {
   completed: 'bg-emerald-100 text-emerald-700',
   failed: 'bg-red-100 text-red-700',
   error: 'bg-red-100 text-red-700',
+  aborted: 'bg-amber-100 text-amber-700',
   running: 'bg-blue-100 text-blue-700',
   pending: 'bg-amber-100 text-amber-700',
   skipped: 'bg-slate-100 text-slate-600',
 };
 
+const STATUS_ICONS = {
+  success: 'check_circle',
+  completed: 'check_circle',
+  failed: 'error',
+  error: 'error',
+  aborted: 'cancel',
+  running: 'play_arrow',
+  pending: 'schedule',
+  skipped: 'skip_next',
+};
+
 function statusBadge(status) {
   const s = (status ?? '').toLowerCase();
   const color = STATUS_COLORS[s] ?? 'bg-slate-100 text-slate-600';
+  const icon = STATUS_ICONS[s];
+  const iconOnlyStates = ['success', 'completed', 'failed', 'error', 'aborted'];
+
+  if (iconOnlyStates.includes(s)) {
+    return (
+      <span
+        title={status ?? '—'}
+        className={`inline-flex items-center justify-center rounded-full p-1 text-sm ${color}`}>
+        <span className="material-symbols-outlined text-sm">{icon}</span>
+      </span>
+    );
+  }
+
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${color}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${color}`}>
+      {icon && <span className="material-symbols-outlined text-xs">{icon}</span>}
       {status ?? '—'}
     </span>
   );
@@ -51,10 +77,49 @@ function StepDetail({ step, onClose }) {
 
   if (!step) return null;
 
+  const getHeaderMap = (kind) => {
+    const candidates = [
+      step?.[`${kind}_headers`],
+      step?.[`${kind}Headers`],
+      step?.[kind]?.headers,
+      step?.headers?.[kind],
+      step?.http_headers?.[kind],
+      step?.http_headers?.[kind.toUpperCase()],
+      step?.request?.headers,
+      step?.response?.headers,
+    ];
+
+    for (const candidate of candidates) {
+      if (candidate && typeof candidate === 'object' && Object.keys(candidate).length) {
+        return candidate;
+      }
+    }
+    return {};
+  };
+
+  const generatedUrl = (
+    step.request_url ||
+    step.generated_url ||
+    step.url ||
+    step.request?.url ||
+    step.response?.url ||
+    step.request_received?.url ||
+    step.transformed_request?.url ||
+    step.response_received?.url ||
+    step.request_received?.request_url ||
+    step.transformed_request?.request_url ||
+    step.response_received?.request_url ||
+    '—'
+  );
+
+  const requestHeaders = getHeaderMap('request');
+  const responseHeaders = getHeaderMap('response');
+
   const tabs = [
     { key: 'request', label: 'Request' },
     { key: 'transformed', label: 'Transformed' },
     { key: 'response', label: 'Response' },
+    { key: 'headers', label: 'Headers' },
     { key: 'extracts', label: extracts.length ? `Extracts (${extracts.length})` : 'Extracts' },
   ];
 
@@ -82,10 +147,83 @@ function StepDetail({ step, onClose }) {
     );
   };
 
+  const copyText = async (text) => {
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      console.warn('Failed to copy text:', error);
+    }
+  };
+
+  const JsonTextBlock = ({ value, emptyText = '—' }) => {
+    const [copied, setCopied] = useState(false);
+    const serialized =
+      value == null
+        ? emptyText
+        : typeof value === 'string'
+          ? value
+          : JSON.stringify(value, null, 2);
+
+    const handleCopy = async () => {
+      await copyText(serialized === emptyText ? '' : serialized);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    };
+
+    return (
+      <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="absolute right-2 top-2 z-10 rounded-md border border-slate-200 bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 shadow-sm transition hover:bg-white hover:text-slate-900">
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+        <pre className="max-h-[22rem] overflow-auto whitespace-pre-wrap break-all p-4 pt-10 font-mono text-xs leading-5 text-slate-700">
+          {serialized || emptyText}
+        </pre>
+      </div>
+    );
+  };
+
+  const renderHeaders = (headerMap) => {
+    const entries = Object.entries(headerMap || {});
+    if (!entries.length) {
+      return <p className="text-sm text-slate-400">No headers recorded for this step.</p>;
+    }
+
+    return (
+      <div className="space-y-3">
+        {entries.map(([key, value]) => (
+          <div key={key} className="relative overflow-hidden rounded-xl border border-outline-variant bg-slate-50 p-3 pt-9">
+            <button
+              type="button"
+              onClick={async () => {
+                const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2) || '—';
+                await copyText(text === '—' ? '' : text);
+              }}
+              className="absolute right-2 top-2 rounded-md border border-slate-200 bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 shadow-sm transition hover:bg-white hover:text-slate-900">
+              Copy
+            </button>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{key}</div>
+            <pre className="whitespace-pre-wrap break-all font-mono text-xs text-slate-700">
+              {typeof value === 'string' ? value : JSON.stringify(value, null, 2) || '—'}
+            </pre>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const content = {
     request: step.request_received,
     transformed: step.transformed_request,
     response: step.response_received,
+    headers: {
+      request: requestHeaders,
+      response: responseHeaders,
+    },
   };
 
   return (
@@ -99,6 +237,10 @@ function StepDetail({ step, onClose }) {
               Seq {step.seq} &nbsp;·&nbsp; Status Code: {step.status_code ?? '—'} &nbsp;·&nbsp;{' '}
               {statusBadge(step.status)}
             </p>
+            <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Generated URL</div>
+              <div className="mt-1 break-all font-mono text-xs text-slate-700">{generatedUrl}</div>
+            </div>
             {step.step_fail_reason && (
               <p className="mt-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-700">{step.step_fail_reason}</p>
             )}
@@ -128,10 +270,19 @@ function StepDetail({ step, onClose }) {
         <div className="max-h-96 overflow-y-auto px-6 py-4">
           {tab === 'extracts' ? (
             renderExtracts(extracts)
+          ) : tab === 'headers' ? (
+            <div className="space-y-4">
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Request headers</div>
+                {renderHeaders(requestHeaders)}
+              </div>
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Response headers</div>
+                {renderHeaders(responseHeaders)}
+              </div>
+            </div>
           ) : (
-            <pre className="whitespace-pre-wrap break-all rounded-xl bg-slate-50 p-4 font-mono text-xs text-slate-700">
-              {content[tab] ? content[tab] : <span className="text-slate-400">—</span>}
-            </pre>
+            <JsonTextBlock value={content[tab]} emptyText="—" />
           )}
         </div>
 
@@ -558,7 +709,7 @@ function PipelineExecutions() {
                     onClick={() => setShowReplayModal(true)}
                     className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700">
                     <span className="material-symbols-outlined text-sm">replay</span>
-                    Replay Pipeline
+                    {' '}Replay Pipeline
                   </button>
                 )}
               </div>
@@ -578,49 +729,59 @@ function PipelineExecutions() {
                 <p className="text-sm text-slate-400">No steps recorded for this run.</p>
               )}
 
-              <div className="flex flex-col gap-2 max-h-[calc(100vh-380px)] overflow-y-auto">
-                {steps.map((step, idx) => {
-                  const failed = ['failed', 'error'].includes((step.status ?? '').toLowerCase());
-                  return (
-                    <button
-                      key={step.run_step_pk}
-                      onClick={() => setSelectedStep(step)}
-                      className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-xs transition hover:shadow-sm ${
-                        failed
-                          ? 'border-red-200 bg-red-50 hover:bg-red-100'
-                          : 'border-outline-variant bg-surface-container-low hover:bg-slate-100'
-                      }`}>
-                      {/* Sequence badge */}
-                      <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                          failed ? 'bg-red-200 text-red-700' : 'bg-primary/10 text-primary'
-                        }`}>
-                        {step.seq ?? idx + 1}
-                      </span>
+              <div className="max-h-[calc(100vh-380px)] overflow-auto pb-2">
+                <div className="flex min-w-max flex-wrap gap-3">
+                  {steps.map((step, idx) => {
+                    const failed = ['failed', 'error'].includes((step.status ?? '').toLowerCase());
+                    const stepKey = step.run_step_pk ?? step.step_pk ?? `${step.seq ?? idx + 1}-${idx}`;
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate font-semibold text-slate-900">
-                            {step.step_name ?? `Step ${step.step_pk}`}
+                    return (
+                      <React.Fragment key={stepKey}>
+                        <button
+                          onClick={() => setSelectedStep(step)}
+                          className={`group w-55 rounded-2xl border px-3 py-2.5 text-left text-[11px] leading-relaxed transition hover:shadow-sm ${
+                            failed
+                              ? 'border-red-200 bg-red-50 hover:bg-red-100'
+                              : 'border-outline-variant bg-surface-container-low hover:bg-slate-100'
+                          }`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span
+                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                                  failed ? 'bg-red-200 text-red-700' : 'bg-primary/10 text-primary'
+                                }`}>
+                                {step.seq ?? idx + 1}
+                              </span>
+                              <span className="min-w-0 wrap-break-word font-semibold text-slate-900">
+                                {step.step_name ?? `Step ${step.step_pk}`}
+                              </span>
+                            </div>
+                            {statusBadge(step.status)}
+                          </div>
+
+                          <div className="mt-2 space-y-1 wrap-break-word text-slate-500">
+                            <div>HTTP {step.status_code ?? '—'}</div>
+                            <div>{formatDateTime(step.created_at)}</div>
+                            {step.step_fail_reason && (
+                              <p className="wrap-break-word text-red-600">{step.step_fail_reason}</p>
+                            )}
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2 text-[10px] text-slate-400">
+                            <span>Open details</span>
+                            <span className="material-symbols-outlined text-sm">open_in_new</span>
+                          </div>
+                        </button>
+
+                        {idx < steps.length - 1 && (
+                          <span className="mt-8 shrink-0 self-start text-slate-300 material-symbols-outlined text-base">
+                            arrow_forward
                           </span>
-                          {statusBadge(step.status)}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-2 text-slate-500">
-                          <span>HTTP {step.status_code ?? '—'}</span>
-                          <span>·</span>
-                          <span>{formatDateTime(step.created_at)}</span>
-                        </div>
-                        {step.step_fail_reason && (
-                          <p className="mt-1 truncate text-red-600">{step.step_fail_reason}</p>
                         )}
-                      </div>
-
-                      <span className="material-symbols-outlined shrink-0 text-sm text-slate-300">
-                        open_in_new
-                      </span>
-                    </button>
-                  );
-                })}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </>

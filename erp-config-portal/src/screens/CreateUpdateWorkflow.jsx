@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useClient } from "../common/ClientContext.jsx";
 import { getStep, createStep, updateStep } from "../common/api/steps.js";
 import { listTargets, createTarget } from "../common/api/targets.js";
-import { listFieldMappings, createFieldMapping, deleteFieldMapping } from "../common/api/fieldMappings.js";
+import { listFieldMappings, createFieldMapping, deleteFieldMapping, updateFieldMapping } from "../common/api/fieldMappings.js";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 const STEP_TYPE = { GET_STORE: "GET_STORE", TRANSFORM_POST: "TRANSFORM_POST" };
@@ -66,14 +66,46 @@ const getParamsPlaceholder = (kind) => {
     default: return "";
   }
 };
+// Splits a dotted/bracket path (e.g. "ContractLine[0].StartDate") into ordered
+// {key} / {index} steps so both array indices and object keys can be walked.
+const parsePathSegments = (path) => {
+  if (!path) return [];
+  const segments = [];
+  for (const part of path.trim().split(".").filter(Boolean)) {
+    const match = part.match(/^([^[]+)((?:\[\d+\])*)$/);
+    if (!match) { segments.push({ key: part }); continue; }
+    const [, key, indices] = match;
+    segments.push({ key });
+    for (const im of indices.match(/\[(\d+)\]/g) || []) segments.push({ index: Number(im.slice(1, -1)) });
+  }
+  return segments;
+};
 const getNestedValue = (source, path) => {
   if (!source || !path) return undefined;
   let current = source;
-  for (const seg of path.trim().split(".").filter(Boolean)) {
+  for (const seg of parsePathSegments(path)) {
     if (current == null || typeof current !== "object") return undefined;
-    current = current[seg];
+    current = seg.index !== undefined ? current[seg.index] : current[seg.key];
   }
   return current;
+};
+// Writes `value` into `root` at `path`, creating intermediate objects/arrays as needed,
+// so e.g. "ContractLine[0].StartDate" produces { ContractLine: [ { StartDate: value } ] }.
+const setNestedValue = (root, path, value) => {
+  const segments = parsePathSegments(path);
+  if (!segments.length) return;
+  let current = root;
+  segments.forEach((seg, i) => {
+    const isLast = i === segments.length - 1;
+    const container = seg.index !== undefined ? "index" : "key";
+    const pointer = container === "index" ? seg.index : seg.key;
+    if (isLast) { current[pointer] = value; return; }
+    const nextIsArrayIndex = segments[i + 1].index !== undefined;
+    if (current[pointer] == null || typeof current[pointer] !== "object") {
+      current[pointer] = nextIsArrayIndex ? [] : {};
+    }
+    current = current[pointer];
+  });
 };
 const INITIAL_SOURCE = JSON.stringify(
   { legacy_id: 10293, firstName: "John", lastName: "Doe", email_addr: "john.d@oldmail.com", status: 1, attributes: { tier: "premium", joined: "2022-05-12" } },
@@ -109,9 +141,14 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
 
   // Transformation rules (TRANSFORM_POST only)
   const [rules, setRules] = useState([]);
+  const [existingRuleMappingPks, setExistingRuleMappingPks] = useState([]);
   const [expandedRuleId, setExpandedRuleId] = useState(null);
   // {rule, x, y} — rendered as a fixed portal so it escapes overflow:hidden panels
   const [ruleTooltip, setRuleTooltip] = useState(null);
+  // Rules panel view: build via form fields, or paste/edit the raw mapping array JSON
+  const [rulesMode, setRulesMode] = useState("builder"); // "builder" | "json"
+  const [rulesJsonText, setRulesJsonText] = useState("");
+  const [rulesJsonError, setRulesJsonError] = useState("");
 
   // Local-only source JSON preview
   const [sourceJson, setSourceJson] = useState(INITIAL_SOURCE);
@@ -149,7 +186,7 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
           Object.entries(stepData.extract ?? {}).map(([target, source]) => ({ source, target })),
         );
         const sorted = [...mappings].sort((a, b) => a.sort_order - b.sort_order);
-        setRules(sorted.map((m) => {
+        const mappedRules = sorted.map((m) => {
           const isLiteral = (m.source_path || "").startsWith(LITERAL_PREFIX);
           return {
             id: `rule-${m.mapping_pk}`,
@@ -159,7 +196,9 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
             target: m.target_path,
             params: m.transform_params || "",
           };
-        }));
+        });
+        setRules(mappedRules);
+        setExistingRuleMappingPks(mappedRules.filter((rule) => rule.mapping_pk).map((rule) => rule.mapping_pk));
         setStepType(stepData.method === "GET" ? STEP_TYPE.GET_STORE : STEP_TYPE.TRANSFORM_POST);
       })
       .catch((err) => setError(err.message))
@@ -189,6 +228,48 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
     setExpandedRuleId(id);
   };
   const removeRule = (index) => setRules((c) => c.filter((_, i) => i !== index));
+
+  // ── rules <-> mapping-array JSON (same shape as the field-mappings API) ───
+  const ruleToMappingEntry = (rule, index) => ({
+    source_path: rule.kind === "CONST" ? `${LITERAL_PREFIX}${rule.source || ""}` : (rule.source || ""),
+    target_path: rule.target || "",
+    transform_type: rule.kind === "CONST" ? "none" : rule.kind,
+    transform_params: TYPES_WITH_PARAMS.has(rule.kind) && rule.params ? rule.params : null,
+    sort_order: index,
+    is_required: false,
+    array_source_path: "",
+    array_target_path: "",
+    is_singleton_array: false,
+  });
+  const mappingEntryToRule = (entry, index) => {
+    const sourcePath = entry.source_path || "";
+    const isLiteral = sourcePath.startsWith(LITERAL_PREFIX);
+    return {
+      id: `rule-json-${index}-${Date.now()}`,
+      kind: isLiteral ? "CONST" : (entry.transform_type || "none"),
+      source: isLiteral ? sourcePath.slice(LITERAL_PREFIX.length) : sourcePath,
+      target: entry.target_path || "",
+      params: entry.transform_params || "",
+    };
+  };
+  // Switching into JSON mode snapshots the current rules; switching back keeps whatever last parsed cleanly.
+  const openRulesJsonMode = () => {
+    setRulesJsonText(JSON.stringify(rules.map(ruleToMappingEntry), null, 2));
+    setRulesJsonError("");
+    setRulesMode("json");
+  };
+  const handleRulesJsonChange = (value) => {
+    setRulesJsonText(value);
+    try {
+      const parsed = JSON.parse(value);
+      if (!Array.isArray(parsed)) throw new Error("Mapping JSON must be an array.");
+      setRules(parsed.map((entry, index) => mappingEntryToRule(entry, index)));
+      setRulesJsonError("");
+    } catch (err) {
+      setRulesJsonError(err.message || "Invalid mapping JSON.");
+    }
+  };
+  const openBuilderModeIfNeeded = () => setRulesMode("builder");
 
   // ── pair helpers ──────────────────────────────────────────────────────────
   const updatePair = (setter, index, field, value) =>
@@ -238,20 +319,27 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
 
   const previewObject = useMemo(() =>
     rules.reduce((acc, rule, index) => {
-      const key = rule.target || `field_${index + 1}`;
+      const path = rule.target || `field_${index + 1}`;
       let value;
       if (rule.kind === "CONST") {
         value = rule.source || "";
       } else {
-        const raw = getNestedValue(sourceData, rule.source) ?? rule.source;
-        value = applyPreviewTransform(raw, rule.kind, rule.params);
+        const raw = getNestedValue(sourceData, rule.source);
+        value = raw === undefined ? null : applyPreviewTransform(raw, rule.kind, rule.params);
       }
-      acc[key] = value;
+      setNestedValue(acc, path, value);
       return acc;
     }, {}),
   [rules, sourceData]);
 
   const previewJson = useMemo(() => JSON.stringify(previewObject, null, 2), [previewObject]);
+
+  // Rules whose source_path doesn't resolve against the current Source JSON -- these
+  // preview as null even though the real payload may well have a value at save/run time.
+  const unresolvedRules = useMemo(
+    () => rules.filter((r) => r.kind !== "CONST" && r.source && getNestedValue(sourceData, r.source) === undefined),
+    [rules, sourceData],
+  );
 
   const storedPreview = useMemo(
     () =>
@@ -322,12 +410,16 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
 
       // 3. Sync field mappings (TRANSFORM_POST only)
       if (stepType === STEP_TYPE.TRANSFORM_POST) {
-        const existingPks = rules.filter((r) => r.mapping_pk).map((r) => r.mapping_pk);
-        await Promise.all(existingPks.map((pk) => deleteFieldMapping(pk)));
+        const remainingPks = new Set();
+        const removedPks = existingRuleMappingPks.filter((pk) => !rules.some((rule) => rule.mapping_pk === pk));
+
+        if (removedPks.length) {
+          await Promise.all(removedPks.map((pk) => deleteFieldMapping(pk)));
+        }
+
         await Promise.all(
-          rules.map((rule, i) =>
-            createFieldMapping({
-              step_pk: savedStep.step_pk,
+          rules.map(async (rule, i) => {
+            const payload = {
               // "CONST" is UI-only -- the engine reads a literal value from
               // source_path prefixed with "__literal." (see transform.py),
               // not from transform_type.
@@ -340,9 +432,20 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
               array_source_path: "",
               array_target_path: "",
               is_singleton_array: false,
-            }),
-          ),
+            };
+
+            if (rule.mapping_pk) {
+              const updated = await updateFieldMapping(rule.mapping_pk, payload);
+              remainingPks.add(updated.mapping_pk ?? rule.mapping_pk);
+              return;
+            }
+
+            const created = await createFieldMapping({ step_pk: savedStep.step_pk, ...payload });
+            remainingPks.add(created.mapping_pk);
+          }),
         );
+
+        setExistingRuleMappingPks([...remainingPks]);
       }
 
       setSavedOk(true);
@@ -533,9 +636,11 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
                 <p className="mb-1 text-[10px] font-semibold uppercase text-slate-400">Auth Type</p>
                 <select value={newTargetAuthType} onChange={(e) => setNewTargetAuthType(e.target.value)}
                   className="w-full rounded-2xl border border-outline-variant bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-primary">
+                  <option value="password">Password</option>
                   <option value="apikey">API Key</option>
-                  <option value="oauth2">OAuth 2.0</option>
+                  <option value="client_credentials">Client Credentials</option>
                   <option value="basic">Basic Auth</option>
+                  <option value="oauth2">OAuth 2.0</option>
                 </select>
               </div>
             </div>
@@ -656,10 +761,11 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
         </div>
         {/* Right: Output */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center border-b border-slate-800 bg-slate-900 px-5 py-3">
+          <div className="flex shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-900 px-5 py-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               {isGetStore ? "Stored Variables" : "Output Preview"}
             </p>
+            {!isGetStore && <UnresolvedWarningBadge rules={unresolvedRules} dark />}
           </div>
           <pre className="flex-1 overflow-auto bg-slate-950 px-6 py-5 font-mono text-sm leading-relaxed text-slate-100">
             {isGetStore ? storedPreview : previewJson}
@@ -722,11 +828,36 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
           <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
             <div className="flex shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container-low px-5 py-4">
               <span className="text-sm font-semibold text-slate-600">Transformation Rules</span>
-              <button type="button" onClick={addRule}
-                className="rounded-2xl bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-95">
-                Add Rule
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-2xl border border-outline-variant bg-white p-0.5 text-xs font-semibold">
+                  <button type="button" onClick={openBuilderModeIfNeeded}
+                    className={`rounded-2xl px-2.5 py-1 transition ${rulesMode === "builder" ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                    Builder
+                  </button>
+                  <button type="button" onClick={openRulesJsonMode}
+                    className={`rounded-2xl px-2.5 py-1 transition ${rulesMode === "json" ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                    Paste JSON
+                  </button>
+                </div>
+                {rulesMode === "builder" && (
+                  <button type="button" onClick={addRule}
+                    className="rounded-2xl bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-95">
+                    Add Rule
+                  </button>
+                )}
+              </div>
             </div>
+            {rulesMode === "json" ? (
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <p className="mb-2 text-xs text-slate-500">
+                  Paste a mapping array (source_path / target_path / transform_type / transform_params / sort_order) — the Builder tab updates as you type.
+                </p>
+                <textarea value={rulesJsonText} onChange={(e) => handleRulesJsonChange(e.target.value)}
+                  className="h-full min-h-50 w-full resize-none rounded-3xl border border-slate-700 bg-slate-950 px-4 py-4 font-code-md text-[13px] text-slate-100 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20"
+                  spellCheck={false} />
+                {rulesJsonError && <p className="mt-3 text-sm text-amber-600">{rulesJsonError}</p>}
+              </div>
+            ) : (
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
               {rules.length === 0 && (
                 <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-xs text-slate-500">
@@ -810,6 +941,7 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
                 );
               })}
             </div>
+            )}
           </div>
         </div>
 
@@ -818,8 +950,9 @@ function CreateUpdateWorkflow({ stepPk, onBack }) {
           {targetConfigPanel}
           {/* Output Preview */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-outline-variant bg-white shadow-sm">
-            <div className="shrink-0 border-b border-outline-variant bg-surface-container-low px-5 py-4">
+            <div className="flex shrink-0 items-center gap-2 border-b border-outline-variant bg-surface-container-low px-5 py-4">
               <span className="text-sm font-semibold text-slate-600">Output Preview</span>
+              <UnresolvedWarningBadge rules={unresolvedRules} />
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto bg-slate-950 p-4">
               <pre className="whitespace-pre-wrap break-all rounded-3xl border border-slate-800 bg-slate-950 p-4 font-code-md text-[12px] text-slate-100">
@@ -885,6 +1018,32 @@ function PairSection({ label, pairs, onAdd, onUpdate, onRemove }) {
         </div>
       ))}
       {pairs.length === 0 && <p className="text-xs text-slate-400">None configured.</p>}
+    </div>
+  );
+}
+
+// Click-to-reveal icon for rules whose source_path didn't resolve against the current Source JSON.
+function UnresolvedWarningBadge({ rules, dark }) {
+  const [open, setOpen] = useState(false);
+  if (!rules.length) return null;
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-label={`${rules.length} unresolved source path(s)`}
+        className={`flex h-5 w-5 items-center justify-center rounded-full transition ${dark ? "bg-amber-400/20 text-amber-400 hover:bg-amber-400/30" : "bg-amber-100 text-amber-600 hover:bg-amber-200"}`}>
+        <span className="material-symbols-outlined text-[14px]">warning</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-7 z-50 w-72 rounded-2xl border border-amber-200 bg-white p-3 text-xs text-amber-700 shadow-xl">
+          <p className="mb-1.5 font-semibold">{rules.length} field(s) show null — source path not found in Source JSON:</p>
+          <ul className="space-y-1">
+            {rules.map((r) => (
+              <li key={r.id} className="break-all font-mono text-[11px] text-amber-700">
+                {r.source} → {r.target || "—"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

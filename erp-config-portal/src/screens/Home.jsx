@@ -128,12 +128,12 @@ function Home() {
           onCreateWorkflow={() => openWorkflowEditor(null)}
         />
 
-        <main className="ml-64 flex min-h-screen flex-1 flex-col overflow-y-auto bg-background">
+        <main className="ml-64 flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
           <div className="border-b border-outline-variant bg-surface px-6 pb-5 pt-5">
             <h1 className="text-2xl font-semibold text-on-surface">{getTitle()}</h1>
           </div>
 
-          <div className="flex min-h-[calc(100vh-200px)] flex-1 gap-3 px-6 pb-6 pt-5">
+          <div className="flex min-h-0 flex-1 gap-3 px-6 pb-6 pt-5">
             {renderScreen()}
           </div>
         </main>

@@ -247,9 +247,11 @@ function TargetSystems() {
                     value={form.auth_type}
                     onChange={(e) => setField('auth_type', e.target.value)}
                     className="w-full rounded-2xl border border-outline-variant bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
+                    <option value="password">Password</option>
                     <option value="apikey">API Key</option>
-                    <option value="oauth2">OAuth 2.0</option>
+                    <option value="client_credentials">Client Credentials</option>
                     <option value="basic">Basic Auth</option>
+                    <option value="oauth2">OAuth 2.0</option>
                   </select>
                 </Field>
 
